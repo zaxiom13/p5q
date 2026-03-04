@@ -25,7 +25,7 @@ function waitForServer(child) {
 test('helper tabs can define functions and reject non-function statements', async () => {
   const port = 7400 + Math.floor(Math.random() * 40);
   const server = spawn(process.execPath, ['server.js'], {
-    cwd: __dirname,
+    cwd: process.cwd(),
     env: { ...process.env, PORT: String(port) },
     stdio: ['ignore', 'pipe', 'pipe']
   });

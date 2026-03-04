@@ -12,7 +12,7 @@ function extractDefaultSketch(source) {
 }
 
 test('default sketch loads in q without syntax error', () => {
-  const appPath = path.join(__dirname, 'public', 'app.js');
+  const appPath = path.join(__dirname, '..', 'public', 'app.js');
   const source = fs.readFileSync(appPath, 'utf8');
   const sketch = extractDefaultSketch(source);
 

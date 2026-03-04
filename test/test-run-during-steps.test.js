@@ -27,7 +27,7 @@ function waitForServer(child) {
 test('run while step stream is active does not runtimeError', async () => {
   const port = 6500 + Math.floor(Math.random() * 200);
   const server = spawn(process.execPath, ['server.js'], {
-    cwd: __dirname,
+    cwd: process.cwd(),
     env: { ...process.env, PORT: String(port) },
     stdio: ['ignore', 'pipe', 'pipe']
   });

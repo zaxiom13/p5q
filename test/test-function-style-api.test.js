@@ -25,7 +25,7 @@ function waitForServer(child) {
 test('function-style setup[state] and draw[state;input] produce render commands', async () => {
   const port = 7100 + Math.floor(Math.random() * 80);
   const server = spawn(process.execPath, ['server.js'], {
-    cwd: __dirname,
+    cwd: process.cwd(),
     env: { ...process.env, PORT: String(port) },
     stdio: ['ignore', 'pipe', 'pipe']
   });

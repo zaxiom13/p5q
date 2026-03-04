@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createRunGate } = require('./public/runGate');
+const { createRunGate } = require('../public/runGate');
 
 test('run gate allows one in-flight run and coalesces rapid retries', () => {
   const sent = [];

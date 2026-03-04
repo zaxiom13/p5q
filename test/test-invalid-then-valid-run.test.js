@@ -25,7 +25,7 @@ function waitForServer(child) {
 test('valid run after an invalid run should recover cleanly', async () => {
   const port = 6900 + Math.floor(Math.random() * 80);
   const server = spawn(process.execPath, ['server.js'], {
-    cwd: __dirname,
+    cwd: process.cwd(),
     env: { ...process.env, PORT: String(port) },
     stdio: ['ignore', 'pipe', 'pipe']
   });

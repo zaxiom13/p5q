@@ -22,10 +22,10 @@ function waitForServer(child) {
   });
 }
 
-test('circle[table] emits one command per row', async () => {
-  const port = 7220 + Math.floor(Math.random() * 40);
+test('background supports single-argument call', async () => {
+  const port = 7380 + Math.floor(Math.random() * 40);
   const server = spawn(process.execPath, ['server.js'], {
-    cwd: __dirname,
+    cwd: process.cwd(),
     env: { ...process.env, PORT: String(port) },
     stdio: ['ignore', 'pipe', 'pipe']
   });
@@ -33,14 +33,7 @@ test('circle[table] emits one command per row', async () => {
   try {
     await waitForServer(server);
 
-    const sketch = [
-      'setup:{createCanvas[200;120]};',
-      'draw:{[state;input]',
-      '  t:([] x:10 30 50f; y:40 40 40f; d:8 10 12f);',
-      '  circle[t];',
-      '  state',
-      '};'
-    ].join('');
+    const sketch = 'setup:{createCanvas[120;80]; ([] ok:enlist 1i)};draw:{[state;input] background[9]; circle[([] x:enlist 20f; y:enlist 20f; d:enlist 8f)]; state};';
 
     const commands = await new Promise((resolve, reject) => {
       const ws = new WebSocket(`ws://localhost:${port}/ws`);
@@ -49,9 +42,7 @@ test('circle[table] emits one command per row', async () => {
         reject(new Error('Timed out waiting for step result'));
       }, 5000);
 
-      ws.on('open', () => {
-        ws.send(JSON.stringify({ type: 'run', code: sketch }));
-      });
+      ws.on('open', () => ws.send(JSON.stringify({ type: 'run', code: sketch })));
 
       ws.on('message', (raw) => {
         const msg = JSON.parse(raw.toString('utf8'));
@@ -59,23 +50,21 @@ test('circle[table] emits one command per row', async () => {
           clearTimeout(timeout);
           ws.close();
           reject(new Error(msg.message));
-          return;
         }
         if (msg.type === 'runResult') {
           ws.send(JSON.stringify({ type: 'step', frame: 0, input: { mx: 0 } }));
-          return;
         }
         if (msg.type === 'stepResult') {
           clearTimeout(timeout);
           ws.close();
-          resolve(msg.commands);
+          resolve(msg.commands || []);
         }
       });
     });
 
-    const circles = commands.filter((c) => Array.isArray(c) && c[0] === 'circle');
-    assert.equal(circles.length, 3);
-    assert.equal(Math.round(circles[2][1]), 50);
+    const backgroundCmd = commands.find((c) => Array.isArray(c) && c[0] === 'background');
+    assert.ok(backgroundCmd, 'expected background command');
+    assert.equal(backgroundCmd[1], 9);
   } finally {
     server.kill('SIGTERM');
     await new Promise((r) => server.once('exit', r));

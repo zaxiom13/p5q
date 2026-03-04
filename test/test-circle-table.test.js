@@ -22,10 +22,10 @@ function waitForServer(child) {
   });
 }
 
-test('draw receives input snapshot table values', async () => {
-  const port = 7180 + Math.floor(Math.random() * 40);
+test('circle[table] emits one command per row', async () => {
+  const port = 7220 + Math.floor(Math.random() * 40);
   const server = spawn(process.execPath, ['server.js'], {
-    cwd: __dirname,
+    cwd: process.cwd(),
     env: { ...process.env, PORT: String(port) },
     stdio: ['ignore', 'pipe', 'pipe']
   });
@@ -36,14 +36,13 @@ test('draw receives input snapshot table values', async () => {
     const sketch = [
       'setup:{createCanvas[200;120]};',
       'draw:{[state;input]',
-      '  mx:first input[`mx];',
-      '  text[([] txt:enlist string mx; x:enlist 10f; y:enlist 18f)];',
-      '  circle[([] x:enlist mx; y:enlist 60f; d:enlist 12f)];',
+      '  t:([] x:10 30 50f; y:40 40 40f; d:8 10 12f);',
+      '  circle[t];',
       '  state',
       '};'
     ].join('');
 
-    const result = await new Promise((resolve, reject) => {
+    const commands = await new Promise((resolve, reject) => {
       const ws = new WebSocket(`ws://localhost:${port}/ws`);
       const timeout = setTimeout(() => {
         ws.close();
@@ -56,39 +55,16 @@ test('draw receives input snapshot table values', async () => {
 
       ws.on('message', (raw) => {
         const msg = JSON.parse(raw.toString('utf8'));
-
         if (msg.type === 'runtimeError') {
           clearTimeout(timeout);
           ws.close();
           reject(new Error(msg.message));
           return;
         }
-
         if (msg.type === 'runResult') {
-          ws.send(
-            JSON.stringify({
-              type: 'step',
-              frame: 4,
-              input: {
-                mx: 77,
-                my: 44,
-                pmx: 75,
-                pmy: 44,
-                mousePressed: true,
-                mouseButton: 'left',
-                keysDown: ['a', 'shift'],
-                key: 'a',
-                keyCode: 65,
-                keyPressed: true,
-                keyReleased: false,
-                wheelDelta: -2,
-                ts: 1700000000123
-              }
-            })
-          );
+          ws.send(JSON.stringify({ type: 'step', frame: 0, input: { mx: 0 } }));
           return;
         }
-
         if (msg.type === 'stepResult') {
           clearTimeout(timeout);
           ws.close();
@@ -97,9 +73,9 @@ test('draw receives input snapshot table values', async () => {
       });
     });
 
-    const circleCmd = result.find((c) => Array.isArray(c) && c[0] === 'circle');
-    assert.ok(circleCmd, 'expected circle command from draw');
-    assert.equal(Math.round(circleCmd[1]), 77);
+    const circles = commands.filter((c) => Array.isArray(c) && c[0] === 'circle');
+    assert.equal(circles.length, 3);
+    assert.equal(Math.round(circles[2][1]), 50);
   } finally {
     server.kill('SIGTERM');
     await new Promise((r) => server.once('exit', r));

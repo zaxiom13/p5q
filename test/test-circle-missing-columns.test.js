@@ -22,10 +22,10 @@ function waitForServer(child) {
   });
 }
 
-test('scalar draw primitive calls are rejected', async () => {
-  const port = 7360 + Math.floor(Math.random() * 40);
+test('circle[table] reports missing required columns', async () => {
+  const port = 7260 + Math.floor(Math.random() * 40);
   const server = spawn(process.execPath, ['server.js'], {
-    cwd: __dirname,
+    cwd: process.cwd(),
     env: { ...process.env, PORT: String(port) },
     stdio: ['ignore', 'pipe', 'pipe']
   });
@@ -34,20 +34,14 @@ test('scalar draw primitive calls are rejected', async () => {
     await waitForServer(server);
 
     const sketch = [
-      'setup:{createCanvas[240;160]; ([] ok:enlist 1b)};',
+      'setup:{createCanvas[200;120]};',
       'draw:{[state;input]',
-      '  line[1;2;3;4];',
-      '  rect[10;20;30;40];',
-      '  ellipse[4;5;6;7];',
-      '  triangle[20;20;50;30;10;60];',
-      '  point[8;9];',
-      '  text["hi";12;14];',
-      '  circle[10;20;30];',
-      '  state',
+      '  t:([] x:10 30f; y:40 40f);',
+      '  circle[t]',
       '};'
     ].join('');
 
-    const runtimeError = await new Promise((resolve, reject) => {
+    const message = await new Promise((resolve, reject) => {
       const ws = new WebSocket(`ws://localhost:${port}/ws`);
       const timeout = setTimeout(() => {
         ws.close();
@@ -61,21 +55,19 @@ test('scalar draw primitive calls are rejected', async () => {
       ws.on('message', (raw) => {
         const msg = JSON.parse(raw.toString('utf8'));
         if (msg.type === 'runResult') {
-          ws.send(JSON.stringify({ type: 'step', input: {} }));
+          ws.send(JSON.stringify({ type: 'step', frame: 0, input: { mx: 0 } }));
           return;
         }
         if (msg.type === 'runtimeError') {
           clearTimeout(timeout);
           ws.close();
-          resolve(msg.message || '');
+          resolve(msg.message);
         }
       });
     });
 
-    assert.match(
-      runtimeError,
-      /(line expects table|rect expects table|ellipse expects table|triangle expects table|point expects table|text expects table|circle expects table)/i
-    );
+    assert.match(message, /circle/i);
+    assert.match(message, /missing column d/i);
   } finally {
     server.kill('SIGTERM');
     await new Promise((r) => server.once('exit', r));

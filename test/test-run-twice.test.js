@@ -30,7 +30,7 @@ function waitForServer(child) {
 test('double run does not produce runtimeError', async () => {
   const port = 6200 + Math.floor(Math.random() * 200);
   const server = spawn(process.execPath, ['server.js'], {
-    cwd: __dirname,
+    cwd: process.cwd(),
     env: { ...process.env, PORT: String(port) },
     stdio: ['ignore', 'pipe', 'pipe']
   });
