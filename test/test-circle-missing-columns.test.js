@@ -34,8 +34,8 @@ test('circle[table] reports missing required columns', async () => {
     await waitForServer(server);
 
     const sketch = [
-      'setup:{createCanvas[200;120]};',
-      'draw:{[state;input]',
+      'setup:{[document]createCanvas[200;120]};',
+      'draw:{[state;input;document]',
       '  t:([] x:10 30f; y:40 40f);',
       '  circle[t]',
       '};'

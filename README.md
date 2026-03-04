@@ -6,7 +6,7 @@ A lightweight p5.js-style editor where sketches are written in kdb+/q and render
 
 - Browser editor + preview canvas + output console.
 - Per-connection q runtime over websocket.
-- `setup[]` / `draw[state;input]` sketch contract.
+- `setup[document]` / `draw[state;input;document]` sketch contract.
 - Multi-tab workspace:
   - 1 main tab (`Sketch.q`)
   - N helper tabs (function definitions only)
@@ -21,10 +21,16 @@ A lightweight p5.js-style editor where sketches are written in kdb+/q and render
 
 Main tab must define:
 
-- `setup[]` -> returns a **table** state.
-- `draw[state;input]` -> returns next **table** state.
+- `setup[document]` -> returns a **table** state.
+- `draw[state;input;document]` -> returns next **table** state.
 
-Input is a one-row table snapshot each frame (mouse/keyboard fields).
+`input` is a one-row table snapshot each frame with mouse/keyboard fields:
+
+- `mx`, `my`, `pmx`, `pmy`, `mousePressed`, `mouseButton`, `keysDown`, `key`, `keyCode`, `keyPressed`, `keyReleased`, `wheelDelta`
+
+`document` is a separate one-row table provided to both `setup` and `draw`:
+
+- `cw`, `ch`, `vw`, `vh`, `dw`, `dh`, `sx`, `sy`, `dpr`, `ts`
 
 Helper tabs:
 

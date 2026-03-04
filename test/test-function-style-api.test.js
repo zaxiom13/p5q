@@ -22,7 +22,7 @@ function waitForServer(child) {
   });
 }
 
-test('function-style setup[state] and draw[state;input] produce render commands', async () => {
+test('function-style setup[document] and draw[state;input;document] produce render commands', async () => {
   const port = 7100 + Math.floor(Math.random() * 80);
   const server = spawn(process.execPath, ['server.js'], {
     cwd: process.cwd(),
@@ -34,18 +34,21 @@ test('function-style setup[state] and draw[state;input] produce render commands'
     await waitForServer(server);
 
     const sketch = [
-      'setup:{',
-      '  createCanvas[200;120];',
+      'setup:{[document]',
+      '  cw:first document[`cw];',
+      '  ch:first document[`ch];',
+      '  createCanvas[cw;ch];',
       '  background[20;20;24];',
       '  textSize[14];',
       '  ([] tick:enlist 0i)',
       '};',
-      'draw:{[state;input]',
+      'draw:{[state;input;document]',
       '  tick:first state[`tick];',
+      '  dpr:first document[`dpr];',
       '  x:100 + 10 * sin tick * 0.1;',
       '  background[0];',
       '  circle[([] x:enlist x; y:enlist 60f; d:enlist 24f)];',
-      '  text[([] txt:enlist "ok"; x:enlist 20f; y:enlist 18f)];',
+      '  text[([] txt:enlist "ok dpr=" , string dpr; x:enlist 20f; y:enlist 18f)];',
       '  update tick:tick+1i from state',
       '};'
     ].join('');
@@ -58,7 +61,24 @@ test('function-style setup[state] and draw[state;input] produce render commands'
       }, 5000);
 
       ws.on('open', () => {
-        ws.send(JSON.stringify({ type: 'run', code: sketch }));
+        ws.send(
+          JSON.stringify({
+            type: 'run',
+            code: sketch,
+            document: {
+              cw: 200,
+              ch: 120,
+              vw: 1200,
+              vh: 800,
+              dw: 1200,
+              dh: 1800,
+              sx: 0,
+              sy: 0,
+              dpr: 2,
+              ts: 1700000000000
+            }
+          })
+        );
       });
 
       ws.on('message', (raw) => {
@@ -90,6 +110,18 @@ test('function-style setup[state] and draw[state;input] produce render commands'
                 keyReleased: false,
                 wheelDelta: 0,
                 ts: 1700000000000
+              },
+              document: {
+                cw: 200,
+                ch: 120,
+                vw: 1200,
+                vh: 800,
+                dw: 1200,
+                dh: 1800,
+                sx: 0,
+                sy: 0,
+                dpr: 2,
+                ts: 1700000000001
               }
             })
           );

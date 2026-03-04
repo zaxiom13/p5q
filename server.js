@@ -14,6 +14,7 @@ const PORT = Number(process.env.PORT || 5173);
 const RUNTIME_BOOT = [
   '.p5.cmds:();',
   '.p5.state:([]);',
+  '.p5.document:([]);',
   '.p5.phase:`idle;',
   '.p5.reset:{.p5.cmds:()};',
   '.p5.emit:{[name;args] .p5.cmds,: enlist ((enlist name),args);::};',
@@ -76,8 +77,8 @@ const RUNTIME_BOOT = [
   'p5constrain:{[v;lo;hi] lo | (hi & v)};',
   '.p5.fromret:{[r] if[0h<>type r; :()]; if[0=count r; :()]; if[0h=type first r; :r]; if[10h=type first r; :enlist r]; :()};',
   '.p5.setstate:{[r] if[104h=type r; :()]; if[0h=type r; if[0<count r; if["error"~first r; :r]]]; if[.p5.istable r; .p5.state:$[99h=type r;value r;r]; :()]; if[0<count .p5.cmds; :()]; ("error";"state must be a table")};',
-  '.p5.runsetup:{ .p5.reset[]; .p5.state:([]); .p5.phase:`setup; r:@[setup;();{("error";string x)}]; .p5.phase:`idle; if[0h=type r; if[0<count r; if["error"~first r; :r]]]; sr:.p5.setstate r; if[0h=type sr; if[0<count sr; if["error"~first sr; :sr]]]; if[0=count .p5.cmds; : .p5.fromret r]; .p5.cmds};',
-  '.p5.rundraw:{[input] .p5.reset[]; .p5.phase:`draw; r:.[draw;(.p5.state;input);{("error";string x)}]; if[0h=type r; if[0<count r; if["error"~first r; r1:.[draw;enlist input;{("error";string x)}]; if[(104h<>type r1) and not ("error"~first r1); r:r1]]]]; if[0h=type r; if[0<count r; if["error"~first r; r2:@[draw;();{("error";string x)}]; if[(104h<>type r2) and not ("error"~first r2); r:r2]]]]; .p5.phase:`idle; if[0h=type r; if[0<count r; if["error"~first r; :r]]]; sr:.p5.setstate r; if[0h=type sr; if[0<count sr; if["error"~first sr; :sr]]]; if[0=count .p5.cmds; : .p5.fromret r]; .p5.cmds};',
+  '.p5.runsetup:{[doc] .p5.reset[]; .p5.state:([]); .p5.document:doc; document:doc; .p5.phase:`setup; r:@[setup;doc;{("error";string x)}]; if[0h=type r; if[0<count r; if["error"~first r; r0:@[setup;();{("error";string x)}]; if[(104h<>type r0) and not ("error"~first r0); r:r0]]]]; .p5.phase:`idle; if[0h=type r; if[0<count r; if["error"~first r; :r]]]; sr:.p5.setstate r; if[0h=type sr; if[0<count sr; if["error"~first sr; :sr]]]; if[0=count .p5.cmds; : .p5.fromret r]; .p5.cmds};',
+  '.p5.rundraw:{[input;doc] .p5.reset[]; .p5.document:doc; document:doc; .p5.phase:`draw; r:.[draw;(.p5.state;input;doc);{("error";string x)}]; if[0h=type r; if[0<count r; if["error"~first r; r1:.[draw;(.p5.state;input);{("error";string x)}]; if[(104h<>type r1) and not ("error"~first r1); r:r1]]]]; if[0h=type r; if[0<count r; if["error"~first r; r2:.[draw;enlist input;{("error";string x)}]; if[(104h<>type r2) and not ("error"~first r2); r:r2]]]]; if[0h=type r; if[0<count r; if["error"~first r; r3:@[draw;();{("error";string x)}]; if[(104h<>type r3) and not ("error"~first r3); r:r3]]]]; .p5.phase:`idle; if[0h=type r; if[0<count r; if["error"~first r; :r]]]; sr:.p5.setstate r; if[0h=type sr; if[0<count sr; if["error"~first sr; :sr]]]; if[0=count .p5.cmds; : .p5.fromret r]; .p5.cmds};',
   '.p5.dispatch:{[id;fn] r:@[fn;();{("error";string x)}]; -1 .j.j (`id`result!(id;r))};'
 ].join('\n');
 
@@ -139,6 +140,24 @@ function qInputTableLiteral(raw) {
     `enlist ${qBool(input.keyReleased)}`,
     `enlist ${qFloat(input.wheelDelta)}`,
     `enlist ${qFloat(input.ts)}`
+  ];
+  return `flip ${columns}!(${values.join(';')})`;
+}
+
+function qDocumentTableLiteral(raw) {
+  const doc = raw && typeof raw === 'object' ? raw : {};
+  const columns = '`cw`ch`vw`vh`dw`dh`sx`sy`dpr`ts';
+  const values = [
+    `enlist ${qFloat(doc.cw)}`,
+    `enlist ${qFloat(doc.ch)}`,
+    `enlist ${qFloat(doc.vw)}`,
+    `enlist ${qFloat(doc.vh)}`,
+    `enlist ${qFloat(doc.dw)}`,
+    `enlist ${qFloat(doc.dh)}`,
+    `enlist ${qFloat(doc.sx)}`,
+    `enlist ${qFloat(doc.sy)}`,
+    `enlist ${qFloat(doc.dpr, 1)}`,
+    `enlist ${qFloat(doc.ts)}`
   ];
   return `flip ${columns}!(${values.join(';')})`;
 }
@@ -299,7 +318,6 @@ const API_REWRITE = [
 
 function preprocessSketchCode(code) {
   let out = String(code || '');
-  out = out.replace(/\bsetup\s*:\s*\{\s*\[[^\]]*\]/g, 'setup:{');
   out = stripSketchComments(out);
 
   let flat = '';
@@ -542,7 +560,8 @@ wss.on('connection', async (ws) => {
         running = false;
         const mergedCode = combineRunCode(msg.code || '', msg.files || []);
         await q.resetAndLoad(mergedCode);
-        const setupResult = await q.invoke('.p5.runsetup[]');
+        const docTableExpr = qDocumentTableLiteral(msg.document);
+        const setupResult = await q.invoke(`.p5.runsetup[${docTableExpr}]`);
         const setupError = toRuntimeError(setupResult);
         if (setupError) {
           throw setupError;
@@ -555,7 +574,8 @@ wss.on('connection', async (ws) => {
       if (msg.type === 'step' && running) {
         const frame = Number(msg.frame || 0);
         const inputTableExpr = qInputTableLiteral(msg.input);
-        const stepResult = await q.invoke(`.p5.rundraw[${inputTableExpr}]`);
+        const docTableExpr = qDocumentTableLiteral(msg.document);
+        const stepResult = await q.invoke(`.p5.rundraw[${inputTableExpr};${docTableExpr}]`);
         const stepError = toRuntimeError(stepResult);
         if (stepError) {
           throw stepError;

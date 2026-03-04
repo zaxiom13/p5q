@@ -34,8 +34,8 @@ test('circle[table] emits one command per row', async () => {
     await waitForServer(server);
 
     const sketch = [
-      'setup:{createCanvas[200;120]};',
-      'draw:{[state;input]',
+      'setup:{[document]createCanvas[200;120]};',
+      'draw:{[state;input;document]',
       '  t:([] x:10 30 50f; y:40 40 40f; d:8 10 12f);',
       '  circle[t];',
       '  state',

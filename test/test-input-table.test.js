@@ -34,8 +34,8 @@ test('draw receives input snapshot table values', async () => {
     await waitForServer(server);
 
     const sketch = [
-      'setup:{createCanvas[200;120]};',
-      'draw:{[state;input]',
+      'setup:{[document]createCanvas[200;120]};',
+      'draw:{[state;input;document]',
       '  mx:first input[`mx];',
       '  text[([] txt:enlist string mx; x:enlist 10f; y:enlist 18f)];',
       '  circle[([] x:enlist mx; y:enlist 60f; d:enlist 12f)];',

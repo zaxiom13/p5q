@@ -35,7 +35,7 @@ test('run while step stream is active does not runtimeError', async () => {
   try {
     await waitForServer(server);
 
-    const sketch = 'setup:{createCanvas[200;120]; ([] ok:enlist 1i)};draw:{[state;input] background[0]; circle[([] x:enlist 100f; y:enlist 60f; d:enlist 30f)]; state};';
+    const sketch = 'setup:{[document]createCanvas[200;120]; ([] ok:enlist 1i)};draw:{[state;input;document] background[0]; circle[([] x:enlist 100f; y:enlist 60f; d:enlist 30f)]; state};';
 
     await new Promise((resolve, reject) => {
       const ws = new WebSocket(`ws://localhost:${port}/ws`);

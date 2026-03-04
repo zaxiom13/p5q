@@ -34,12 +34,12 @@ test('manual table indexing with tick mod count drives animation', async () => {
     await waitForServer(server);
 
     const sketch = [
-      'setup:{',
+      'setup:{[document]',
       '  createCanvas[200;120];',
       '  t:([] x:10 30 50f; y:40 40 40f; d:9 9 9f);',
       '  ([] tick:enlist 0i; circles:enlist t)',
       '};',
-      'draw:{[state;input]',
+      'draw:{[state;input;document]',
       '  background[0];',
       '  circles:first state[`circles];',
       '  i:first state[`tick] mod count circles;',

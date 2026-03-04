@@ -21,41 +21,46 @@ const STORAGE_KEY = 'p5q:workspace:v1';
 const LEGACY_SKETCH_KEY = 'p5q:lastSketch:v3';
 
 const DEFAULT_SKETCH = `// q sketch contract (function-style API):
-// - setup[] initializes and returns state table
-// - draw[state;input] updates and returns state table
+// - setup[document] initializes and returns state table
+// - draw[state;input;document] updates and returns state table
 // - shape primitives + text are table-only
 
-setup:{
-  createCanvas[640;360];
+setup:{[document]
+  vw:first document[\`vw];
+  w:360f | 0.82 * vw;
+  h:220f | 0.56 * w;
+  createCanvas[w;h];
   frameRate[24];
   textSize[16];
-  t:([] x:120 220 320 420 520f;
-    y:180 180 180 180 180f;
-    d:28 34 40 34 28f;
+  ([] tick:enlist 0i)
+};
+
+draw:{[state;input;document]
+  tick:first state[\`tick];
+  mx:first input[\`mx];
+  cw:first document[\`cw];
+  ch:first document[\`ch];
+  vw:first document[\`vw];
+  dpr:first document[\`dpr];
+  cx:0.22 0.36 0.5 0.64 0.78 * cw;
+  cy:5#(0.52 * ch);
+  wobble:10f * sin tick * 0.12;
+  t:([] x:cx + wobble;
+    y:cy;
+    d:0.07 0.085 0.1 0.085 0.07 * ch;
     fillR:235 235 235 235 235i;
     fillG:94 120 140 170 200i;
     fillB:40 60 90 120 160i);
-  ([] label:enlist "mouse x:";
-    mxLast:enlist 0f;
-    tick:enlist 0i;
-    circles:enlist t)
-};
-
-draw:{[state;input]
-  mx:first input[\`mx];
-  tick:first state[\`tick];
-  circles:first state[\`circles];
-  i:tick mod count circles;
 
   background[20;20;24];
-  circle[circles enlist i];
+  circle[t];
 
-  txt:([] txt:(first state[\`label]; string mx);
-    x:20 108f;
-    y:32 32f;
-    fillR:245 235i;
-    fillG:245 120i;
-    fillB:245 40i);
+  txt:([] txt:("mouse x:"; string floor mx; "canvas:" , string floor cw , "x" , string floor ch; "viewport:" , string floor vw , " dpr=" , string dpr);
+    x:20 108 20 20f;
+    y:32 32 58 80f;
+    fillR:245 235 205 180i;
+    fillG:245 120 225 200i;
+    fillB:245 40 245 220i);
   text[txt];
   rect[([] x:enlist 18f;
     y:enlist 44f;
@@ -68,7 +73,7 @@ draw:{[state;input]
     x3:enlist 204f;
     y3:enlist 56f)];
 
-  update mxLast:mx, tick:tick+1i from state
+  update tick:tick+1i from state
 };
 `;
 
@@ -87,9 +92,10 @@ const API_GLOSSARY = [
 ];
 
 const SETUP_DRAW_GUIDE = [
-  '`setup[]` runs once per Run and must return a table state.',
-  '`draw[state;input]` runs every frame and must return the next state table.',
-  '`input` is a one-row table (mx, my, mousePressed, keysDown, key, keyCode, etc.).',
+  '`setup[document]` runs once per Run and must return a table state.',
+  '`draw[state;input;document]` runs every frame and must return the next state table.',
+  '`input` is a one-row table for mouse/keyboard fields.',
+  '`document` is a separate one-row global table (cw/ch, vw/vh, dw/dh, sx/sy, dpr), available in setup and draw.',
   'Each helper tab must contain only function definitions (`name:{...};`).',
   'Helper functions are loaded before the main sketch and can be called from setup/draw.',
   'Shapes and text are table-only. One row = one draw call; many rows = vectorized draw.'
@@ -106,13 +112,16 @@ const EXAMPLES = [
           id: 'sketch',
           name: 'Sketch.q',
           kind: 'main',
-          code: `setup:{
-  createCanvas[720;420];
+          code: `setup:{[document]
+  vw:first document[\`vw];
+  w:420f | 0.82 * vw;
+  h:260f | 0.58 * w;
+  createCanvas[w;h];
   frameRate[30];
   textSize[15];
   n:90;
-  p:([] x:40f + n?640f;
-    y:24f + n?372f;
+  p:([] x:14f + n?(w-28f);
+    y:16f + n?(h-32f);
     vx:(n?2f)-1f;
     vy:(n?2f)-1f;
     d:3.5 + n?6f;
@@ -123,18 +132,20 @@ const EXAMPLES = [
     particles:enlist p)
 };
 
-draw:{[state;input]
+draw:{[state;input;document]
   tick:first state[\`tick];
-  ps:stepBouncers[first state[\`particles]; 720f; 420f];
+  cw:first document[\`cw];
+  ch:first document[\`ch];
+  ps:stepBouncers[first state[\`particles]; cw; ch];
 
   background[12;16;24];
   circle[ps];
-  text[([] txt:enlist "Bouncing dots";
-    x:enlist 24f;
-    y:enlist 30f;
-    fillR:enlist 252i;
-    fillG:enlist 252i;
-    fillB:enlist 252i)];
+  text[([] txt:("Bouncing dots"; "canvas " , string floor cw , "x" , string floor ch);
+    x:24 24f;
+    y:30 52f;
+    fillR:252 210i;
+    fillG:252 220i;
+    fillB:252 230i)];
 
   update tick:tick+1i, particles:enlist ps from state
 };`
@@ -171,8 +182,11 @@ draw:{[state;input]
           id: 'sketch',
           name: 'Sketch.q',
           kind: 'main',
-          code: `setup:{
-  createCanvas[720;420];
+          code: `setup:{[document]
+  vw:first document[\`vw];
+  w:460f | 0.84 * vw;
+  h:280f | 0.56 * w;
+  createCanvas[w;h];
   frameRate[30];
   textSize[16];
   empty:([] x:0#0f;
@@ -188,18 +202,21 @@ draw:{[state;input]
     tick:enlist 0i)
 };
 
-draw:{[state;input]
+draw:{[state;input;document]
+  cw:first document[\`cw];
+  ch:first document[\`ch];
+  dpr:first document[\`dpr];
   ps:stepParticles select from (first state[\`particles]) where life > 0;
   if[first input[\`mousePressed]; ps:ps,spawnParticles[first input[\`mx]; first input[\`my]; 10]];
 
   background[12;16;22];
   circle[ps];
-  text[([] txt:("Hold mouse to emit particles"; string count ps);
-    x:20 50f;
-    y:90 28f;
-    fillR:245 245i;
-    fillG:245 245i;
-    fillB:245 245i)];
+  text[([] txt:("Hold mouse and drag to emit particles"; "particles " , string count ps; "canvas " , string floor cw , "x" , string floor ch , " dpr=" , string dpr);
+    x:20 20 20f;
+    y:28 52 76f;
+    fillR:245 245 205i;
+    fillG:245 245 225i;
+    fillB:245 245 245i)];
 
   update particles:enlist ps, tick:first state[\`tick]+1i from state
 };`
@@ -416,7 +433,7 @@ function buildRunPayload() {
   persistActiveTabCode();
   const main = mainTab();
   const files = helperTabs().map((t) => ({ name: t.name, code: t.code }));
-  return { code: main.code, files };
+  return { code: main.code, files, document: getDocumentSnapshot() };
 }
 
 function loadExample(exampleId) {
@@ -610,6 +627,36 @@ function getInputSnapshot() {
   };
 }
 
+function getDocumentSnapshot() {
+  const docEl = document.documentElement;
+  const body = document.body;
+  const docWidth = Math.max(
+    docEl ? docEl.scrollWidth : 0,
+    docEl ? docEl.clientWidth : 0,
+    body ? body.scrollWidth : 0,
+    body ? body.clientWidth : 0
+  );
+  const docHeight = Math.max(
+    docEl ? docEl.scrollHeight : 0,
+    docEl ? docEl.clientHeight : 0,
+    body ? body.scrollHeight : 0,
+    body ? body.clientHeight : 0
+  );
+
+  return {
+    cw: Number(p.width) || 0,
+    ch: Number(p.height) || 0,
+    vw: Number(window.innerWidth) || 0,
+    vh: Number(window.innerHeight) || 0,
+    dw: Number(docWidth) || 0,
+    dh: Number(docHeight) || 0,
+    sx: Number(window.scrollX) || 0,
+    sy: Number(window.scrollY) || 0,
+    dpr: Number(window.devicePixelRatio) || 1,
+    ts: Date.now()
+  };
+}
+
 function clearInputFrameEdges() {
   inputState.keyPressed = false;
   inputState.keyReleased = false;
@@ -742,15 +789,32 @@ function applyCommands(commands) {
 
     const [fnName, ...args] = command;
     const fn = p[fnName];
+    const safeArgs = fnName === 'text' ? normalizeTextArgs(args) : args;
 
     if (typeof fn === 'function') {
       try {
-        fn.apply(p, args);
+        fn.apply(p, safeArgs);
       } catch (err) {
         log(`Command failed (${fnName}): ${err.message}`);
       }
     }
   }
+}
+
+function normalizeTextArgs(args) {
+  if (!Array.isArray(args) || args.length === 0) {
+    return args;
+  }
+  if (!Array.isArray(args[0])) {
+    return args;
+  }
+
+  // q char/general lists can arrive as JS arrays; p5 would stringify with commas.
+  // Collapse to a readable string before applying the text command.
+  const text = args[0]
+    .map((part) => (part == null ? '' : String(part)))
+    .join('');
+  return [text, ...args.slice(1)];
 }
 
 function normalizeCommands(raw) {
@@ -785,7 +849,7 @@ const p = new p5((sketch) => {
 
     if (sketchRunning && !awaitingFrame && ws && ws.readyState === WebSocket.OPEN) {
       awaitingFrame = true;
-      const sent = send({ type: 'step', input: getInputSnapshot() });
+      const sent = send({ type: 'step', input: getInputSnapshot(), document: getDocumentSnapshot() });
       if (sent) {
         clearInputFrameEdges();
       }

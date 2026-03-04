@@ -34,8 +34,8 @@ test('scalar draw primitive calls are rejected', async () => {
     await waitForServer(server);
 
     const sketch = [
-      'setup:{createCanvas[240;160]; ([] ok:enlist 1b)};',
-      'draw:{[state;input]',
+      'setup:{[document]createCanvas[240;160]; ([] ok:enlist 1b)};',
+      'draw:{[state;input;document]',
       '  line[1;2;3;4];',
       '  rect[10;20;30;40];',
       '  ellipse[4;5;6;7];',

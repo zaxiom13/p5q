@@ -34,8 +34,8 @@ test('table input works for rect/triangle/line/ellipse/point', async () => {
     await waitForServer(server);
 
     const sketch = [
-      'setup:{createCanvas[240;160]; ([] ok:enlist 1b)};',
-      'draw:{[state;input]',
+      'setup:{[document]createCanvas[240;160]; ([] ok:enlist 1b)};',
+      'draw:{[state;input;document]',
       '  rect[([] x:10 60f; y:15 15f; w:20 25f; h:30 35f)];',
       '  triangle[([] x1:10 30f; y1:80 80f; x2:20 40f; y2:90 90f; x3:15 35f; y3:100 100f)];',
       '  line[([] x1:5 7f; y1:5 7f; x2:40 42f; y2:5 7f)];',

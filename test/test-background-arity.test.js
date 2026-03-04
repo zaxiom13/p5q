@@ -33,7 +33,7 @@ test('background supports single-argument call', async () => {
   try {
     await waitForServer(server);
 
-    const sketch = 'setup:{createCanvas[120;80]; ([] ok:enlist 1i)};draw:{[state;input] background[9]; circle[([] x:enlist 20f; y:enlist 20f; d:enlist 8f)]; state};';
+    const sketch = 'setup:{[document]createCanvas[120;80]; ([] ok:enlist 1i)};draw:{[state;input;document] background[9]; circle[([] x:enlist 20f; y:enlist 20f; d:enlist 8f)]; state};';
 
     const commands = await new Promise((resolve, reject) => {
       const ws = new WebSocket(`ws://localhost:${port}/ws`);

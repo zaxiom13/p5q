@@ -34,8 +34,8 @@ test('helper tabs can define functions and reject non-function statements', asyn
     await waitForServer(server);
 
     const sketch = [
-      'setup:{createCanvas[180;120]; ([] ok:enlist 1i)};',
-      'draw:{[state;input]',
+      'setup:{[document]createCanvas[180;120]; ([] ok:enlist 1i)};',
+      'draw:{[state;input;document]',
       '  mx:first input[`mx];',
       '  circle[makeCircle[mx]];',
       '  state',

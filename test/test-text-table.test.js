@@ -34,8 +34,8 @@ test('text[table] supports per-row fill color columns', async () => {
     await waitForServer(server);
 
     const sketch = [
-      'setup:{createCanvas[200;120]; ([] tick:enlist 0i)};',
-      'draw:{[state;input]',
+      'setup:{[document]createCanvas[200;120]; ([] tick:enlist 0i)};',
+      'draw:{[state;input;document]',
       '  t:([] txt:("a";"b"); x:20 80f; y:24 48f; fillR:255 0i; fillG:0 255i; fillB:0 120i);',
       '  text[t];',
       '  state',

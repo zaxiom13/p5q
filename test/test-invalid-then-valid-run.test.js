@@ -34,7 +34,7 @@ test('valid run after an invalid run should recover cleanly', async () => {
     await waitForServer(server);
 
     const badSketch = 'this is invalid q';
-    const goodSketch = 'setup:{createCanvas[200;120]; ([] ok:enlist 1i)};draw:{[state;input] background[0]; state};';
+    const goodSketch = 'setup:{[document]createCanvas[200;120]; ([] ok:enlist 1i)};draw:{[state;input;document] background[0]; state};';
 
     const result = await new Promise((resolve, reject) => {
       const ws = new WebSocket(`ws://localhost:${port}/ws`);
