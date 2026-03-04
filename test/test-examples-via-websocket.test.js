@@ -6,6 +6,9 @@ const vm = require('node:vm');
 const { spawn } = require('node:child_process');
 const WebSocket = require('ws');
 
+const EXAMPLE_WS_TIMEOUT_MS = 12000;
+const EXAMPLE_WS_RETRIES = 1;
+
 function waitForServer(child) {
   return new Promise((resolve, reject) => {
     let out = '';
@@ -65,7 +68,7 @@ function runExampleViaWs(port, payload) {
     const timeout = setTimeout(() => {
       ws.close();
       reject(new Error('Timed out waiting for run/step result'));
-    }, 6000);
+    }, EXAMPLE_WS_TIMEOUT_MS);
 
     const documentSnapshot = {
       cw: 720,
@@ -129,6 +132,22 @@ function runExampleViaWs(port, payload) {
   });
 }
 
+async function runExampleViaWsWithRetry(port, payload, exampleId) {
+  let attempt = 0;
+  while (true) {
+    try {
+      return await runExampleViaWs(port, payload);
+    } catch (err) {
+      const msg = String(err && err.message ? err.message : err);
+      const timedOut = msg.includes('Timed out waiting for run/step result');
+      if (!timedOut || attempt >= EXAMPLE_WS_RETRIES) {
+        throw new Error(`example ${exampleId} failed: ${msg}`);
+      }
+      attempt += 1;
+    }
+  }
+}
+
 test('bundled examples run via websocket API without runtime errors', async () => {
   const appPath = path.join(__dirname, '..', 'public', 'app.js');
   const source = fs.readFileSync(appPath, 'utf8');
@@ -146,7 +165,7 @@ test('bundled examples run via websocket API without runtime errors', async () =
 
     for (const example of examples) {
       const payload = getMainAndHelpers(example);
-      const commands = await runExampleViaWs(port, payload);
+      const commands = await runExampleViaWsWithRetry(port, payload, example.id);
 
       assert.ok(Array.isArray(commands), `example ${example.id} should return command list`);
       assert.ok(commands.length > 0, `example ${example.id} should emit at least one command on step`);

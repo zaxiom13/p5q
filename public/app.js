@@ -10,7 +10,8 @@ const menuSaveBtn = document.getElementById('menuSaveBtn');
 const menuResetBtn = document.getElementById('menuResetBtn');
 const tabListEl = document.getElementById('tabList');
 const addTabBtn = document.getElementById('addTabBtn');
-const exampleSelect = document.getElementById('exampleSelect');
+const exampleBtn = document.getElementById('exampleBtn');
+const examplePanel = document.getElementById('examplePanel');
 const helpBtn = document.getElementById('helpBtn');
 const helpModal = document.getElementById('helpModal');
 const helpCloseBtn = document.getElementById('helpCloseBtn');
@@ -445,15 +446,21 @@ function loadExample(exampleId) {
   setEditorCode(activeTab().code);
   renderTabs();
   saveWorkspace();
+  closeExamplesMenu();
   log(`Loaded example: ${found.label}`);
 }
 
 function fillExamplesDropdown() {
+  examplePanel.innerHTML = '';
   for (const ex of EXAMPLES) {
-    const option = document.createElement('option');
-    option.value = ex.id;
-    option.textContent = ex.label;
-    exampleSelect.appendChild(option);
+    const btn = document.createElement('button');
+    btn.className = 'ghost menuItem';
+    btn.type = 'button';
+    btn.textContent = ex.label;
+    btn.addEventListener('click', () => {
+      loadExample(ex.id);
+    });
+    examplePanel.appendChild(btn);
   }
 }
 
@@ -498,6 +505,58 @@ function setEditorCode(code) {
   editorEl.textContent = code;
 }
 
+function toggleLineComments(editor, monaco) {
+  const model = editor.getModel();
+  if (!model) {
+    return;
+  }
+
+  const selections = editor.getSelections() || [];
+  if (selections.length === 0) {
+    return;
+  }
+
+  const lineNums = [];
+  for (const sel of selections) {
+    const start = sel.startLineNumber;
+    const end = sel.endLineNumber;
+    for (let line = start; line <= end; line += 1) {
+      lineNums.push(line);
+    }
+  }
+
+  const uniqueLines = Array.from(new Set(lineNums)).sort((a, b) => a - b);
+  const allCommented = uniqueLines.every((line) => {
+    const text = model.getLineContent(line);
+    return text.trimStart().startsWith('//');
+  });
+
+  const edits = [];
+  for (const line of uniqueLines) {
+    const text = model.getLineContent(line);
+    const indent = text.match(/^\s*/)?.[0].length || 0;
+
+    if (allCommented) {
+      const commentPos = text.indexOf('//', indent);
+      if (commentPos >= 0) {
+        edits.push({
+          range: new monaco.Range(line, commentPos + 1, line, commentPos + 3),
+          text: ''
+        });
+      }
+    } else {
+      edits.push({
+        range: new monaco.Range(line, indent + 1, line, indent + 1),
+        text: '//'
+      });
+    }
+  }
+
+  if (edits.length > 0) {
+    editor.executeEdits('p5q-toggle-line-comment', edits);
+  }
+}
+
 function initMonacoEditor() {
   const initial = activeTab().code;
   if (!window.require) {
@@ -540,6 +599,10 @@ function initMonacoEditor() {
       if (tab) {
         tab.code = monacoEditor.getValue();
       }
+    });
+
+    monacoEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Slash, () => {
+      toggleLineComments(monacoEditor, monaco);
     });
   });
 }
@@ -701,14 +764,6 @@ addTabBtn.addEventListener('click', () => {
   addHelperTab();
 });
 
-exampleSelect.addEventListener('change', () => {
-  if (!exampleSelect.value) {
-    return;
-  }
-  loadExample(exampleSelect.value);
-  exampleSelect.value = '';
-});
-
 helpBtn.addEventListener('click', () => {
   helpModal.hidden = false;
 });
@@ -726,11 +781,23 @@ helpModal.addEventListener('click', (event) => {
 function openMenu() {
   menuPanel.hidden = false;
   menuBtn.setAttribute('aria-expanded', 'true');
+  closeExamplesMenu();
 }
 
 function closeMenu() {
   menuPanel.hidden = true;
   menuBtn.setAttribute('aria-expanded', 'false');
+}
+
+function openExamplesMenu() {
+  examplePanel.hidden = false;
+  exampleBtn.setAttribute('aria-expanded', 'true');
+  closeMenu();
+}
+
+function closeExamplesMenu() {
+  examplePanel.hidden = true;
+  exampleBtn.setAttribute('aria-expanded', 'false');
 }
 
 menuBtn.addEventListener('click', (event) => {
@@ -746,13 +813,28 @@ menuPanel.addEventListener('click', (event) => {
   event.stopPropagation();
 });
 
+exampleBtn.addEventListener('click', (event) => {
+  event.stopPropagation();
+  if (examplePanel.hidden) {
+    openExamplesMenu();
+  } else {
+    closeExamplesMenu();
+  }
+});
+
+examplePanel.addEventListener('click', (event) => {
+  event.stopPropagation();
+});
+
 document.addEventListener('click', () => {
   closeMenu();
+  closeExamplesMenu();
 });
 
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
     closeMenu();
+    closeExamplesMenu();
     helpModal.hidden = true;
   }
   inputState.key = event.key || '';

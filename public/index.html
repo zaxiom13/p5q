@@ -18,9 +18,10 @@
           <button id="runBtn">Run</button>
           <button id="stopBtn" class="ghost">Stop</button>
           <button id="resendBtn" class="ghost">Reset Output</button>
-          <select id="exampleSelect" class="ghost">
-            <option value="">Examples</option>
-          </select>
+          <div class="menuWrap">
+            <button id="exampleBtn" class="ghost" aria-label="Open examples" aria-expanded="false">Examples ▾</button>
+            <div id="examplePanel" class="menuPanel" hidden></div>
+          </div>
           <button id="helpBtn" class="ghost">Help</button>
           <div class="menuWrap">
             <button id="menuBtn" class="ghost menuBtn" aria-label="Open menu" aria-expanded="false">☰</button>
