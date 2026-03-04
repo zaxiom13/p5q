@@ -179,6 +179,10 @@ button.ghost {
   display: flex;
   gap: 0.4rem;
   align-items: center;
+  min-height: var(--control-h);
+  height: calc(var(--control-h) + 0.9rem);
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .tabBtn {
@@ -187,7 +191,7 @@ button.ghost {
   color: var(--ink);
   font-family: 'IBM Plex Mono', monospace;
   font-size: 0.82rem;
-  height: 1.85rem;
+  height: var(--control-h);
   padding: 0 0.65rem;
   cursor: pointer;
 }
@@ -207,20 +211,31 @@ button.ghost {
   align-items: center;
   justify-content: space-between;
   gap: 0.6rem;
-  min-height: 2.2rem;
+  min-height: var(--control-h);
+  height: calc(var(--control-h) + 0.9rem);
   min-width: 0;
   flex-wrap: nowrap;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .tabList {
   display: flex;
   flex: 1;
   gap: 0.35rem;
+  align-items: center;
+  height: 100%;
   overflow-x: auto;
   overflow-y: hidden;
-  scrollbar-width: thin;
+  scrollbar-width: none;
   white-space: nowrap;
   min-width: 0;
+  -ms-overflow-style: none;
+  scrollbar-gutter: stable both-edges;
+}
+
+.tabList::-webkit-scrollbar {
+  display: none;
 }
 
 .tabChip {
