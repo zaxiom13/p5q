@@ -18,6 +18,7 @@ const helpCloseBtn = document.getElementById('helpCloseBtn');
 const setupDrawGuideEl = document.getElementById('setupDrawGuide');
 const apiGlossaryEl = document.getElementById('apiGlossary');
 const primitiveColumnsEl = document.getElementById('primitiveColumns');
+const inputDocumentFieldsEl = document.getElementById('inputDocumentFields');
 
 const STORAGE_KEY = 'p5q:workspace:v1';
 const LEGACY_SKETCH_KEY = 'p5q:lastSketch:v3';
@@ -172,6 +173,25 @@ const TABLE_SNIPPETS = [
     documentation: 'Insert text table template',
     insertText: 'text[([] txt:enlist "${1:hello}"; x:enlist ${2:24f}; y:enlist ${3:40f}; fillR:enlist ${4:255i}; fillG:enlist ${5:255i}; fillB:enlist ${6:255i})];'
   }
+];
+
+const INPUT_DOCUMENT_HELP = [
+  'input[`mx], input[`my]: current mouse x/y in canvas coordinates',
+  'input[`pmx], input[`pmy]: previous frame mouse x/y',
+  'input[`mousePressed]: true while mouse button is down',
+  'input[`mouseButton]: `left | `center | `right | `none',
+  'input[`keysDown]: symbols for currently-held keys (lowercase)',
+  'input[`key]: last key string seen by key events',
+  'input[`keyCode]: last key code (integer)',
+  'input[`keyPressed], input[`keyReleased]: one-frame edge flags',
+  'input[`wheelDelta]: wheel delta accumulated for this frame',
+  'input[`ts]: input snapshot timestamp (ms)',
+  'document[`cw], document[`ch]: current canvas width/height',
+  'document[`vw], document[`vh]: browser viewport width/height',
+  'document[`dw], document[`dh]: full document scrollable width/height',
+  'document[`sx], document[`sy]: page scroll x/y',
+  'document[`dpr]: device pixel ratio',
+  'document[`ts]: document snapshot timestamp (ms)'
 ];
 
 const SETUP_DRAW_GUIDE = [
@@ -550,6 +570,7 @@ function fillHelpContent() {
   setupDrawGuideEl.innerHTML = '';
   apiGlossaryEl.innerHTML = '';
   primitiveColumnsEl.innerHTML = '';
+  inputDocumentFieldsEl.innerHTML = '';
 
   for (const line of SETUP_DRAW_GUIDE) {
     const li = document.createElement('li');
@@ -567,6 +588,12 @@ function fillHelpContent() {
     const li = document.createElement('li');
     li.textContent = line;
     primitiveColumnsEl.appendChild(li);
+  }
+
+  for (const line of INPUT_DOCUMENT_HELP) {
+    const li = document.createElement('li');
+    li.textContent = line;
+    inputDocumentFieldsEl.appendChild(li);
   }
 }
 
