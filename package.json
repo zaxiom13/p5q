@@ -1,0 +1,14 @@
+{
+  "name": "p5q-editor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Lightweight p5.js-style editor for kdb+/q sketches",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test --test-concurrency=1"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

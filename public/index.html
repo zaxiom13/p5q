@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>p5q Editor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=Sora:wght@400;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/p5@1.9.3/lib/p5.min.js"></script>
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="brand">p5q</div>
+        <div class="actions">
+          <button id="runBtn">Run</button>
+          <button id="stopBtn" class="ghost">Stop</button>
+          <button id="resendBtn" class="ghost">Reset Output</button>
+          <select id="exampleSelect" class="ghost">
+            <option value="">Examples</option>
+          </select>
+          <button id="helpBtn" class="ghost">Help</button>
+          <div class="menuWrap">
+            <button id="menuBtn" class="ghost menuBtn" aria-label="Open menu" aria-expanded="false">☰</button>
+            <div id="menuPanel" class="menuPanel" hidden>
+              <button id="menuResetBtn" class="ghost menuItem">Reset Example</button>
+              <button id="menuSaveBtn" class="ghost menuItem">Save Local</button>
+            </div>
+          </div>
+        </div>
+        <div id="status" class="status">Connecting…</div>
+      </header>
+
+      <main class="workspace">
+        <section class="editorPane">
+          <div class="codePanel">
+            <div class="paneHeader tabBar">
+              <div id="tabList" class="tabList"></div>
+              <button id="addTabBtn" class="ghost addTabBtn" title="Add helper tab">+ Tab</button>
+            </div>
+            <div id="editor"></div>
+          </div>
+          <div class="outputPanel">
+            <div class="paneHeader">Output</div>
+            <pre id="console"></pre>
+          </div>
+        </section>
+
+        <section class="previewPane">
+          <div class="paneHeader">Preview</div>
+          <div id="canvasHost"></div>
+        </section>
+      </main>
+    </div>
+    <div id="helpModal" class="helpModal" hidden>
+      <div class="helpCard">
+        <div class="helpHead">
+          <h2>p5q Help</h2>
+          <button id="helpCloseBtn" class="ghost">Close</button>
+        </div>
+        <section>
+          <h3>How `setup` and `draw` Work</h3>
+          <ul id="setupDrawGuide"></ul>
+        </section>
+        <section>
+          <h3>API Glossary</h3>
+          <ul id="apiGlossary"></ul>
+        </section>
+      </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.2/min/vs/loader.min.js"></script>
+    <script src="/qSyntax.js"></script>
+    <script src="/runGate.js"></script>
+    <script src="/app.js"></script>
+  </body>
+</html>
