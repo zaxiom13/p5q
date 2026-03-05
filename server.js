@@ -24,6 +24,7 @@ const Q_CLOSE_TIMEOUT_MS = envInt('P5Q_CLOSE_TIMEOUT_MS', 400);
 const Q_MAX_RUNS_PER_SESSION = envInt('P5Q_MAX_RUNS_PER_SESSION', 50);
 const WS_PENDING_LIMIT = envInt('P5Q_WS_PENDING_LIMIT', 64);
 const TMP_FILE_MAX_AGE_MS = envInt('P5Q_TMP_FILE_MAX_AGE_MS', 60 * 60 * 1000);
+const Q_WORKER_POOL_SIZE = envInt('P5Q_WORKER_POOL_SIZE', 1);
 
 function getQSpawnSpec() {
   const override = process.env.P5Q_Q_BIN;
@@ -81,15 +82,22 @@ async function pruneTmpDir() {
 }
 
 const RUNTIME_BOOT = [
-  '.p5.cmds:();',
-  '.p5.state:([]);',
-  '.p5.document:([]);',
+  '.p5.currentSession:`symbol$();',
+  '.p5.sessions:(`symbol$())!();',
   '.p5.phase:`idle;',
-  `.p5.userSetup:{[doc] ("error";"${EMPTY_SETUP_ERROR}")};`,
-  `.p5.userDraw:{[state;input;doc] ("error";"${EMPTY_DRAW_ERROR}")};`,
-  '.p5.activeRunId:"";',
-  '.p5.reset:{.p5.cmds:()};',
-  '.p5.emit:{[name;args] .p5.cmds,: enlist ((enlist name),args);::};',
+  `.p5.emptysetup:{[doc] ("error";"${EMPTY_SETUP_ERROR}")};`,
+  `.p5.emptydraw:{[state;input;doc] ("error";"${EMPTY_DRAW_ERROR}")};`,
+  '.p5.mksession:{[] `state`document`cmds`setup`draw`runId!(([]);([]);();.p5.emptysetup;.p5.emptydraw;"")};',
+  '.p5.ensuresession:{[sid] if[not sid in key .p5.sessions; .[`.p5.sessions;enlist sid;:;.p5.mksession[]]]; ::};',
+  '.p5.delsession:{[sid] if[sid in key .p5.sessions; delete sid from `.p5.sessions]; ::};',
+  '.p5.sget:{[sid;k] (.p5.sessions sid) k};',
+  '.p5.sset:{[sid;k;v] .[`.p5.sessions;(sid;k);:;v]; ::};',
+  '.p5.begin:{[sid;phase] .p5.currentSession:sid; .p5.phase:phase; ::};',
+  '.p5.finish:{[priorSession] .p5.phase:`idle; .p5.currentSession:priorSession; ::};',
+  '.p5.setdocument:{[sid;doc] .p5.sset[sid;`document;doc]; document:doc; ::};',
+  '.p5.clearstate:{[sid] .p5.sset[sid;`state;([])]; ::};',
+  '.p5.reset:{[] sid:.p5.currentSession; .p5.sset[sid;`cmds;()]; ::};',
+  '.p5.emit:{[name;args] sid:.p5.currentSession; cmds:.p5.sget[sid;`cmds]; .p5.sset[sid;`cmds;cmds,enlist ((enlist name),args)]; ::};',
   '.p5.emit0:{[name] .p5.emit[name;()]};',
   '.p5.emit1:{[name;a] .p5.emit[name;enlist a]};',
   '.p5.emit2:{[name;a;b] .p5.emit[name;(a;b)]};',
@@ -148,9 +156,9 @@ const RUNTIME_BOOT = [
   '.p5map:{[v;a1;a2;b1;b2] b1 + ((v-a1) % (a2-a1)) * (b2-b1)};',
   '.p5constrain:{[v;lo;hi] lo | (hi & v)};',
   '.p5.fromret:{[r] if[0h<>type r; :()]; if[0=count r; :()]; if[0h=type first r; :r]; if[10h=type first r; :enlist r]; :()};',
-  '.p5.setstate:{[r] if[104h=type r; :()]; if[0h=type r; if[0<count r; if["error"~first r; :r]]]; if[.p5.istable r; .p5.state:$[99h=type r;value r;r]; :()]; if[0<count .p5.cmds; :()]; ("error";"state must be a table")};',
-  `.p5.runsetup:{[doc] .p5.reset[]; .p5.state:([]); .p5.document:doc; document:doc; .p5.phase:\`setup; r:@[.p5.userSetup;doc;{("error";string x)}]; if[0h=type r; if[0<count r; if["error"~first r; if["${EMPTY_SETUP_ERROR}"~string r 1; :r]; r0:@[.p5.userSetup;();{("error";string x)}]; if[(104h<>type r0) and not ("error"~first r0); r:r0]]]]; .p5.phase:\`idle; if[0h=type r; if[0<count r; if["error"~first r; :r]]]; sr:.p5.setstate r; if[0h=type sr; if[0<count sr; if["error"~first sr; :sr]]]; if[0=count .p5.cmds; : .p5.fromret r]; .p5.cmds};`,
-  `.p5.rundraw:{[input;doc] .p5.reset[]; .p5.document:doc; document:doc; .p5.phase:\`draw; r:.[.p5.userDraw;(.p5.state;input;doc);{("error";string x)}]; if[0h=type r; if[0<count r; if["error"~first r; if["${EMPTY_DRAW_ERROR}"~string r 1; :r]; r1:.[.p5.userDraw;(.p5.state;input);{("error";string x)}]; if[(104h<>type r1) and not ("error"~first r1); r:r1]]]]; if[0h=type r; if[0<count r; if["error"~first r; r2:.[.p5.userDraw;enlist input;{("error";string x)}]; if[(104h<>type r2) and not ("error"~first r2); r:r2]]]]; if[0h=type r; if[0<count r; if["error"~first r; r3:@[.p5.userDraw;();{("error";string x)}]; if[(104h<>type r3) and not ("error"~first r3); r:r3]]]]; .p5.phase:\`idle; if[0h=type r; if[0<count r; if["error"~first r; :r]]]; sr:.p5.setstate r; if[0h=type sr; if[0<count sr; if["error"~first sr; :sr]]]; if[0=count .p5.cmds; : .p5.fromret r]; .p5.cmds};`,
+  '.p5.setstate:{[sid;r] if[104h=type r; :()]; if[0h=type r; if[0<count r; if["error"~first r; :r]]]; if[.p5.istable r; .p5.sset[sid;`state;$[99h=type r;value r;r]]; :()]; if[0<count .p5.sget[sid;`cmds]; :()]; ("error";"state must be a table")};',
+  '.p5.runsetup:{[sid;doc] .p5.ensuresession sid; priorSession:.p5.currentSession; .p5.begin[sid;`setup]; .p5.reset[]; .p5.clearstate[sid]; .p5.setdocument[sid;doc]; setupFn:.p5.sget[sid;`setup]; r:@[setupFn;doc;{("error";string x)}]; if[0h=type r; if[0<count r; if["error"~first r; r0:@[setupFn;();{("error";string x)}]; if[(104h<>type r0) and not ("error"~first r0); r:r0]]]]; .p5.finish priorSession; if[0h=type r; if[0<count r; if["error"~first r; :r]]]; sr:.p5.setstate[sid;r]; if[0h=type sr; if[0<count sr; if["error"~first sr; :sr]]]; if[0=count .p5.sget[sid;`cmds]; : .p5.fromret r]; .p5.sget[sid;`cmds]};',
+  '.p5.rundraw:{[sid;input;doc] .p5.ensuresession sid; priorSession:.p5.currentSession; .p5.begin[sid;`draw]; .p5.reset[]; .p5.setdocument[sid;doc]; drawFn:.p5.sget[sid;`draw]; st:.p5.sget[sid;`state]; r:.[drawFn;(st;input;doc);{("error";string x)}]; if[0h=type r; if[0<count r; if["error"~first r; r1:.[drawFn;(st;input);{("error";string x)}]; if[(104h<>type r1) and not ("error"~first r1); r:r1]]]]; if[0h=type r; if[0<count r; if["error"~first r; r2:.[drawFn;enlist input;{("error";string x)}]; if[(104h<>type r2) and not ("error"~first r2); r:r2]]]]; if[0h=type r; if[0<count r; if["error"~first r; r3:@[drawFn;();{("error";string x)}]; if[(104h<>type r3) and not ("error"~first r3); r:r3]]]]; .p5.finish priorSession; if[0h=type r; if[0<count r; if["error"~first r; :r]]]; sr:.p5.setstate[sid;r]; if[0h=type sr; if[0<count sr; if["error"~first sr; :sr]]]; if[0=count .p5.sget[sid;`cmds]; : .p5.fromret r]; .p5.sget[sid;`cmds]};',
   '.p5.dispatch:{[id;fn] r:@[fn;();{("error";string x)}]; -1 .j.j (`id`result!(id;r))};'
 ].join('\n');
 
@@ -441,17 +449,56 @@ function preprocessSketchCode(code) {
   return out;
 }
 
-class QSession {
-  constructor() {
+class QWorker {
+  constructor(id) {
+    this.id = id;
     this.proc = null;
     this.qSpawn = null;
     this.stdoutBuffer = '';
     this.stderrBuffer = '';
     this.pending = new Map();
     this.nextId = 1;
-    this.onStdoutLine = null;
+    this.stdoutListeners = new Map();
+    this.activeStdoutSession = null;
     this.poisoned = false;
     this.runCount = 0;
+    this.taskQueue = Promise.resolve();
+    this.activeSessions = new Set();
+  }
+
+  enqueue(task, sessionId = null) {
+    const run = async () => {
+      const prevSession = this.activeStdoutSession;
+      this.activeStdoutSession = sessionId;
+      try {
+        return await task();
+      } finally {
+        this.activeStdoutSession = prevSession;
+      }
+    };
+
+    const next = this.taskQueue.then(run, run);
+    this.taskQueue = next.catch(() => {});
+    return next;
+  }
+
+  attachSession(sessionId, onStdoutLine) {
+    this.activeSessions.add(sessionId);
+    this.stdoutListeners.set(sessionId, onStdoutLine);
+  }
+
+  async detachSession(sessionId) {
+    this.activeSessions.delete(sessionId);
+    this.stdoutListeners.delete(sessionId);
+    await this.enqueue(async () => {
+      if (!this.proc) {
+        return;
+      }
+      await this.invoke(`.p5.delsession[${qSymbol(sessionId)}]`).catch(() => {});
+      if (this.activeSessions.size === 0 && this.poisoned) {
+        await this.close();
+      }
+    }, sessionId);
   }
 
   async start() {
@@ -515,8 +562,11 @@ class QSession {
         }
       }
 
-      if (!handledProtocol && trimmed && typeof this.onStdoutLine === 'function') {
-        this.onStdoutLine(line);
+      if (!handledProtocol && trimmed) {
+        const listener = this.activeStdoutSession ? this.stdoutListeners.get(this.activeStdoutSession) : null;
+        if (typeof listener === 'function') {
+          listener(line);
+        }
       }
 
       idx = this.stdoutBuffer.indexOf('\n');
@@ -524,7 +574,10 @@ class QSession {
   }
 
   async ensureFreshProcess() {
-    if (!this.proc || this.poisoned || this.runCount >= Q_MAX_RUNS_PER_SESSION) {
+    const shouldRecycleForAge =
+      this.runCount >= Q_MAX_RUNS_PER_SESSION && this.activeSessions.size === 0;
+
+    if (!this.proc || this.poisoned || shouldRecycleForAge) {
       await this.close();
       this.stdoutBuffer = '';
       this.stderrBuffer = '';
@@ -534,31 +587,43 @@ class QSession {
     }
   }
 
-  async resetAndLoad(code) {
-    await this.ensureFreshProcess();
+  async resetAndLoad(sessionId, code) {
+    return this.enqueue(async () => {
+      await this.ensureFreshProcess();
 
-    const sketchId = crypto.randomBytes(8).toString('hex');
-    const sketchPath = path.join(TMP_DIR, `sketch-${sketchId}.q`);
-    const rewritten = preprocessSketchCode(code);
-    const runNamespace = `.p5run${sketchId}`;
-    const wrapped = [
-      `.p5.userSetup:{[doc] ("error";"${EMPTY_SETUP_ERROR}")};`,
-      `.p5.userDraw:{[state;input;doc] ("error";"${EMPTY_DRAW_ERROR}")};`,
-      '.p5.activeRunId:"";',
-      `\\d ${runNamespace}`,
-      rewritten,
-      '.p5.userSetup:setup;',
-      '.p5.userDraw:draw;',
-      `.p5.activeRunId:"${sketchId}";`,
-      '\\d .'
-    ].join('\n');
-    await fsp.writeFile(sketchPath, `${wrapped}\n`, 'utf8');
-    this.proc.stdin.write(`\\l ${toQLoadPath(sketchPath, this.qSpawn)}\n`);
-    await new Promise((resolve) => setTimeout(resolve, Q_LOAD_SETTLE_MS));
-    // q can emit non-fatal stderr lines around \l even when the script loads.
-    // Actual setup/draw failures are surfaced through .p5.runsetup/.p5.rundraw.
-    this.stderrBuffer = '';
-    this.runCount += 1;
+      const sketchId = crypto.randomBytes(8).toString('hex');
+      const sketchPath = path.join(TMP_DIR, `sketch-${sketchId}.q`);
+      const rewritten = preprocessSketchCode(code);
+      const runNamespace = `.p5run${sketchId}`;
+      const sessionExpr = qSymbol(sessionId);
+      const wrapped = [
+        `.p5.ensuresession[${sessionExpr}];`,
+        `\\d ${runNamespace}`,
+        rewritten,
+        `.[\`.p5.sessions;(${sessionExpr};\`setup);:;setup];`,
+        `.[\`.p5.sessions;(${sessionExpr};\`draw);:;draw];`,
+        `.[\`.p5.sessions;(${sessionExpr};\`runId);:;${qString(sketchId)}];`,
+        '\\d .'
+      ].join('\n');
+      await fsp.writeFile(sketchPath, `${wrapped}\n`, 'utf8');
+      this.proc.stdin.write(`\\l ${toQLoadPath(sketchPath, this.qSpawn)}\n`);
+      await new Promise((resolve) => setTimeout(resolve, Q_LOAD_SETTLE_MS));
+      // q can emit non-fatal stderr lines around \l even when the script loads.
+      // Actual setup/draw failures are surfaced through .p5.runsetup/.p5.rundraw.
+      this.stderrBuffer = '';
+      this.runCount += 1;
+    }, sessionId);
+  }
+
+  async runSetup(sessionId, documentExpr) {
+    return this.enqueue(async () => this.invoke(`.p5.runsetup[${qSymbol(sessionId)};${documentExpr}]`), sessionId);
+  }
+
+  async runDraw(sessionId, inputExpr, documentExpr) {
+    return this.enqueue(
+      async () => this.invoke(`.p5.rundraw[${qSymbol(sessionId)};${inputExpr};${documentExpr}]`),
+      sessionId
+    );
   }
 
   invoke(fnExpr) {
@@ -620,6 +685,24 @@ class QSession {
   }
 }
 
+class QWorkerPool {
+  constructor(size) {
+    this.workers = Array.from({ length: Math.max(1, size) }, (_, i) => new QWorker(i));
+  }
+
+  pickWorker() {
+    return this.workers.reduce((best, worker) => {
+      if (!best) {
+        return worker;
+      }
+      if (worker.activeSessions.size < best.activeSessions.size) {
+        return worker;
+      }
+      return best;
+    }, null);
+  }
+}
+
 function serveStatic(req, res) {
   const cleanPath = req.url === '/' ? '/index.html' : req.url;
   const filePath = path.join(PUBLIC_DIR, cleanPath);
@@ -645,18 +728,18 @@ function serveStatic(req, res) {
 
 const server = http.createServer(serveStatic);
 const wss = new WebSocketServer({ server, path: '/ws' });
+const workerPool = new QWorkerPool(Q_WORKER_POOL_SIZE);
 
 wss.on('connection', async (ws) => {
-  const q = new QSession();
+  const sessionId = crypto.randomBytes(12).toString('hex');
+  const worker = workerPool.pickWorker();
   let running = false;
   let messageQueue = Promise.resolve();
-  let ready = false;
-  const pendingMessages = [];
-  q.onStdoutLine = (line) => {
+  worker.attachSession(sessionId, (line) => {
     sendJson(ws, { type: 'stdout', line });
-  };
+  });
 
-  const processMessage = (raw) => {
+  ws.on('message', (raw) => {
     messageQueue = messageQueue
       .then(async () => {
         let msg;
@@ -670,9 +753,9 @@ wss.on('connection', async (ws) => {
       if (msg.type === 'run') {
         running = false;
         const mergedCode = combineRunCode(msg.code || '', msg.files || []);
-        await q.resetAndLoad(mergedCode);
+        await worker.resetAndLoad(sessionId, mergedCode);
         const docTableExpr = qDocumentTableLiteral(msg.document);
-        const setupResult = await q.invoke(`.p5.runsetup[${docTableExpr}]`);
+        const setupResult = await worker.runSetup(sessionId, docTableExpr);
         const setupError = toRuntimeError(setupResult);
         if (setupError) {
           throw setupError;
@@ -686,7 +769,7 @@ wss.on('connection', async (ws) => {
         const frame = Number(msg.frame || 0);
         const inputTableExpr = qInputTableLiteral(msg.input);
         const docTableExpr = qDocumentTableLiteral(msg.document);
-        const stepResult = await q.invoke(`.p5.rundraw[${inputTableExpr};${docTableExpr}]`);
+        const stepResult = await worker.runDraw(sessionId, inputTableExpr, docTableExpr);
         const stepError = toRuntimeError(stepResult);
         if (stepError) {
           throw stepError;
@@ -704,37 +787,11 @@ wss.on('connection', async (ws) => {
         }
       })
       .catch(() => {});
-  };
-
-  ws.on('message', (raw) => {
-    if (!ready) {
-      if (pendingMessages.length >= WS_PENDING_LIMIT) {
-        sendJson(ws, { type: 'serverError', message: 'Server is still starting q; retry shortly.' });
-        ws.close();
-        return;
-      }
-      pendingMessages.push(raw);
-      return;
-    }
-    processMessage(raw);
   });
-
-  try {
-    await q.start();
-    ready = true;
-    for (const raw of pendingMessages.splice(0)) {
-      processMessage(raw);
-    }
-  } catch (err) {
-    sendJson(ws, { type: 'serverError', message: `Unable to start q: ${err.message}` });
-    ws.close();
-    return;
-  }
 
   ws.on('close', async () => {
     running = false;
-    q.onStdoutLine = null;
-    await q.close();
+    await worker.detachSession(sessionId);
   });
 });
 

@@ -5,7 +5,7 @@ A lightweight p5.js-style editor where sketches are written in kdb+/q and render
 ## Current Features
 
 - Browser editor + preview canvas + output console.
-- Per-connection q runtime over websocket.
+- Pooled q workers over websocket with per-session runtime isolation.
 - `setup[document]` / `draw[state;input;document]` sketch contract.
 - Multi-tab workspace:
   - 1 main tab (`Sketch.q`)
@@ -65,6 +65,11 @@ npm start
 
 Open: [http://localhost:5173](http://localhost:5173)
 
+Runtime pool sizing:
+
+- `P5Q_WORKER_POOL_SIZE=1` keeps a single shared q worker.
+- Increase `P5Q_WORKER_POOL_SIZE` to allow more concurrent sketches at the cost of more q processes.
+
 ## Test
 
 ```bash
@@ -96,5 +101,8 @@ npm run demo:record:headed
 
 ## Project Notes
 
-- Backend is intentionally thin: static file server + websocket bridge + per-client q process.
+- Backend is intentionally thin: static file server + websocket bridge + pooled q workers.
+- Each websocket session gets its own sketch state inside q and is routed to one worker for its lifetime.
+- Sessions sharing a worker are serialized inside that worker, so state stays isolated but CPU-heavy sketches can still block each other.
 - Frontend applies returned command IR directly against p5.
+- See [docs/runtime-architecture.md](./docs/runtime-architecture.md) for the current runtime sketch.
