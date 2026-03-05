@@ -96,6 +96,7 @@ const RUNTIME_BOOT = [
   '.p5.finish:{[priorSession] .p5.phase:`idle; .p5.currentSession:priorSession; ::};',
   '.p5.setdocument:{[sid;doc] .p5.sset[sid;`document;doc]; document:doc; ::};',
   '.p5.clearstate:{[sid] .p5.sset[sid;`state;([])]; ::};',
+  '.p5.preparerun:{[sid] .p5.ensuresession sid; .p5.sset[sid;`state;([])]; .p5.sset[sid;`document;([])]; .p5.sset[sid;`cmds;()]; .p5.sset[sid;`setup;.p5.emptysetup]; .p5.sset[sid;`draw;.p5.emptydraw]; .p5.sset[sid;`runId;""]; ::};',
   '.p5.reset:{[] sid:.p5.currentSession; .p5.sset[sid;`cmds;()]; ::};',
   '.p5.emit:{[name;args] sid:.p5.currentSession; cmds:.p5.sget[sid;`cmds]; .p5.sset[sid;`cmds;cmds,enlist ((enlist name),args)]; ::};',
   '.p5.emit0:{[name] .p5.emit[name;()]};',
@@ -596,6 +597,7 @@ class QWorker {
       const rewritten = preprocessSketchCode(code);
       const runNamespace = `.p5run${sketchId}`;
       const sessionExpr = qSymbol(sessionId);
+      await this.invoke(`.p5.preparerun[${sessionExpr}]`);
       const wrapped = [
         `.p5.ensuresession[${sessionExpr}];`,
         `\\d ${runNamespace}`,
