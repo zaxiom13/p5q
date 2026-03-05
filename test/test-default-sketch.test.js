@@ -19,7 +19,12 @@ test('default sketch loads in q without syntax error', () => {
   const sketchPath = path.join(os.tmpdir(), `p5q-default-${Date.now()}.q`);
   fs.writeFileSync(sketchPath, `${sketch}\n`, 'utf8');
 
-  const res = spawnSync('q', ['-q', sketchPath], { encoding: 'utf8' });
+  const res =
+    process.platform === 'win32'
+      ? spawnSync('wsl.exe', ['bash', '-ic', `q -q "${sketchPath.replace(/\\/g, '/').replace(/^([A-Za-z]):/, (_, d) => `/mnt/${d.toLowerCase()}`)}"`], {
+          encoding: 'utf8'
+        })
+      : spawnSync('q', ['-q', sketchPath], { encoding: 'utf8' });
 
   assert.equal(
     res.status,

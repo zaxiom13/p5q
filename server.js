@@ -10,12 +10,46 @@ const ROOT = __dirname;
 const PUBLIC_DIR = path.join(ROOT, 'public');
 const TMP_DIR = path.join(ROOT, 'tmp');
 const PORT = Number(process.env.PORT || 5173);
+const EMPTY_SETUP_ERROR = 'setup not loaded';
+const EMPTY_DRAW_ERROR = 'draw not loaded';
+
+function getQSpawnSpec() {
+  const override = process.env.P5Q_Q_BIN;
+  if (override) {
+    return { command: override, args: ['-q'], viaWsl: false };
+  }
+
+  // On Windows, q may only be available inside an interactive WSL shell.
+  if (process.platform === 'win32') {
+    return { command: 'wsl.exe', args: ['bash', '-ic', 'q -q'], viaWsl: true };
+  }
+
+  return { command: 'q', args: ['-q'], viaWsl: false };
+}
+
+function toQLoadPath(filePath, qSpawn) {
+  const normalized = filePath.replace(/\\/g, '/');
+  if (!qSpawn?.viaWsl) {
+    return normalized;
+  }
+
+  const driveMatch = normalized.match(/^([A-Za-z]):\/(.*)$/);
+  if (!driveMatch) {
+    return normalized;
+  }
+
+  const [, drive, rest] = driveMatch;
+  return `/mnt/${drive.toLowerCase()}/${rest}`;
+}
 
 const RUNTIME_BOOT = [
   '.p5.cmds:();',
   '.p5.state:([]);',
   '.p5.document:([]);',
   '.p5.phase:`idle;',
+  `.p5.userSetup:{[doc] ("error";"${EMPTY_SETUP_ERROR}")};`,
+  `.p5.userDraw:{[state;input;doc] ("error";"${EMPTY_DRAW_ERROR}")};`,
+  '.p5.activeRunId:"";',
   '.p5.reset:{.p5.cmds:()};',
   '.p5.emit:{[name;args] .p5.cmds,: enlist ((enlist name),args);::};',
   '.p5.emit0:{[name] .p5.emit[name;()]};',
@@ -47,38 +81,38 @@ const RUNTIME_BOOT = [
   '.p5.pointrows:{[t] {.p5.pointrow x} each t;::};',
   '.p5.textrow:{[row] .p5.applycolor[row;1b;0b]; tv:.p5.req[row;`txt;enlist `text;"text"]; xv:.p5.req[row;`x;();"text"]; yv:.p5.req[row;`y;();"text"]; .p5.emit3["text";tv;xv;yv]};',
   '.p5.textrows:{[t] {.p5.textrow x} each t;::};',
-  'p5createcanvas:{[w;h] .p5.emit2["createCanvas";w;h]};',
-  'p5resizecanvas:{[w;h] .p5.emit2["resizeCanvas";w;h]};',
-  'p5framerate:{[f] .p5.emit1["frameRate";f]};',
-  'p5background:{[x] xs:$[(1<count x) and ((type x)>0h) and ((type x)<20h);x;.p5.aslist x]; n:count xs; if[1=n; :.p5.emit1["background";xs 0]]; if[2=n; :.p5.emit2["background";xs 0;xs 1]]; if[3=n; :.p5.emit3["background";xs 0;xs 1;xs 2]]; \' "background expects 1-3 args"};',
-  'p5clear:{[] .p5.emit0["clear"]};',
-  'p5fill:{[a;b;c] if[11h=type b; :.p5.emit1["fill";a]]; if[11h=type c; :.p5.emit2["fill";a;b]]; .p5.emit3["fill";a;b;c]};',
-  'p5nofill:{[] .p5.emit0["noFill"]};',
-  'p5stroke:{[a;b;c] if[11h=type b; :.p5.emit1["stroke";a]]; if[11h=type c; :.p5.emit2["stroke";a;b]]; .p5.emit3["stroke";a;b;c]};',
-  'p5nostroke:{[] .p5.emit0["noStroke"]};',
-  'p5strokeweight:{[w] .p5.emit1["strokeWeight";w]};',
-  'p5line:{[x] if[.p5.tab x; :.p5.linerows $[99h=type x;value x;x]]; \' "line expects table"};',
-  'p5rect:{[x] if[.p5.tab x; :.p5.rectrows $[99h=type x;value x;x]]; \' "rect expects table"};',
-  'p5circle:{[x] if[.p5.tab x; :.p5.circlerows $[99h=type x;value x;x]]; \' "circle expects table"};',
-  'p5ellipse:{[x] if[.p5.tab x; :.p5.ellipserows $[99h=type x;value x;x]]; \' "ellipse expects table"};',
-  'p5triangle:{[x] if[.p5.tab x; :.p5.trianglerows $[99h=type x;value x;x]]; \' "triangle expects table"};',
-  'p5point:{[x] if[.p5.tab x; :.p5.pointrows $[99h=type x;value x;x]]; \' "point expects table"};',
-  'p5text:{[x] if[.p5.tab x; :.p5.textrows $[99h=type x;value x;x]]; \' "text expects table"};',
-  'p5textsize:{[x] .p5.emit1["textSize";x]};',
-  'p5textalign:{[a;b] if[11h=type b; :.p5.emit1["textAlign";a]]; .p5.emit2["textAlign";a;b]};',
-  'p5textfont:{[a;b] if[11h=type b; :.p5.emit1["textFont";a]]; .p5.emit2["textFont";a;b]};',
-  'p5push:{[] .p5.emit0["push"]};',
-  'p5pop:{[] .p5.emit0["pop"]};',
-  'p5translate:{[x;y] .p5.emit2["translate";x;y]};',
-  'p5rotate:{[x] .p5.emit1["rotate";x]};',
-  'p5scale:{[x;y] if[11h=type y; :.p5.emit1["scale";x]]; .p5.emit2["scale";x;y]};',
-  'p5random:{[x;y] if[11h=type y; :x*rand 1f]; x + (y-x)*rand 1f};',
-  'p5map:{[v;a1;a2;b1;b2] b1 + ((v-a1) % (a2-a1)) * (b2-b1)};',
-  'p5constrain:{[v;lo;hi] lo | (hi & v)};',
+  '.p5createcanvas:{[w;h] .p5.emit2["createCanvas";w;h]};',
+  '.p5resizecanvas:{[w;h] .p5.emit2["resizeCanvas";w;h]};',
+  '.p5framerate:{[f] .p5.emit1["frameRate";f]};',
+  '.p5background:{[x] xs:$[(1<count x) and ((type x)>0h) and ((type x)<20h);x;.p5.aslist x]; n:count xs; if[1=n; :.p5.emit1["background";xs 0]]; if[2=n; :.p5.emit2["background";xs 0;xs 1]]; if[3=n; :.p5.emit3["background";xs 0;xs 1;xs 2]]; \' "background expects 1-3 args"};',
+  '.p5clear:{[] .p5.emit0["clear"]};',
+  '.p5fill:{[a;b;c] if[11h=type b; :.p5.emit1["fill";a]]; if[11h=type c; :.p5.emit2["fill";a;b]]; .p5.emit3["fill";a;b;c]};',
+  '.p5nofill:{[] .p5.emit0["noFill"]};',
+  '.p5stroke:{[a;b;c] if[11h=type b; :.p5.emit1["stroke";a]]; if[11h=type c; :.p5.emit2["stroke";a;b]]; .p5.emit3["stroke";a;b;c]};',
+  '.p5nostroke:{[] .p5.emit0["noStroke"]};',
+  '.p5strokeweight:{[w] .p5.emit1["strokeWeight";w]};',
+  '.p5line:{[x] if[.p5.tab x; :.p5.linerows $[99h=type x;value x;x]]; \' "line expects table"};',
+  '.p5rect:{[x] if[.p5.tab x; :.p5.rectrows $[99h=type x;value x;x]]; \' "rect expects table"};',
+  '.p5circle:{[x] if[.p5.tab x; :.p5.circlerows $[99h=type x;value x;x]]; \' "circle expects table"};',
+  '.p5ellipse:{[x] if[.p5.tab x; :.p5.ellipserows $[99h=type x;value x;x]]; \' "ellipse expects table"};',
+  '.p5triangle:{[x] if[.p5.tab x; :.p5.trianglerows $[99h=type x;value x;x]]; \' "triangle expects table"};',
+  '.p5point:{[x] if[.p5.tab x; :.p5.pointrows $[99h=type x;value x;x]]; \' "point expects table"};',
+  '.p5text:{[x] if[.p5.tab x; :.p5.textrows $[99h=type x;value x;x]]; \' "text expects table"};',
+  '.p5textsize:{[x] .p5.emit1["textSize";x]};',
+  '.p5textalign:{[a;b] if[11h=type b; :.p5.emit1["textAlign";a]]; .p5.emit2["textAlign";a;b]};',
+  '.p5textfont:{[a;b] if[11h=type b; :.p5.emit1["textFont";a]]; .p5.emit2["textFont";a;b]};',
+  '.p5push:{[] .p5.emit0["push"]};',
+  '.p5pop:{[] .p5.emit0["pop"]};',
+  '.p5translate:{[x;y] .p5.emit2["translate";x;y]};',
+  '.p5rotate:{[x] .p5.emit1["rotate";x]};',
+  '.p5scale:{[x;y] if[11h=type y; :.p5.emit1["scale";x]]; .p5.emit2["scale";x;y]};',
+  '.p5random:{[x;y] if[11h=type y; :x*rand 1f]; x + (y-x)*rand 1f};',
+  '.p5map:{[v;a1;a2;b1;b2] b1 + ((v-a1) % (a2-a1)) * (b2-b1)};',
+  '.p5constrain:{[v;lo;hi] lo | (hi & v)};',
   '.p5.fromret:{[r] if[0h<>type r; :()]; if[0=count r; :()]; if[0h=type first r; :r]; if[10h=type first r; :enlist r]; :()};',
   '.p5.setstate:{[r] if[104h=type r; :()]; if[0h=type r; if[0<count r; if["error"~first r; :r]]]; if[.p5.istable r; .p5.state:$[99h=type r;value r;r]; :()]; if[0<count .p5.cmds; :()]; ("error";"state must be a table")};',
-  '.p5.runsetup:{[doc] .p5.reset[]; .p5.state:([]); .p5.document:doc; document:doc; .p5.phase:`setup; r:@[setup;doc;{("error";string x)}]; if[0h=type r; if[0<count r; if["error"~first r; r0:@[setup;();{("error";string x)}]; if[(104h<>type r0) and not ("error"~first r0); r:r0]]]]; .p5.phase:`idle; if[0h=type r; if[0<count r; if["error"~first r; :r]]]; sr:.p5.setstate r; if[0h=type sr; if[0<count sr; if["error"~first sr; :sr]]]; if[0=count .p5.cmds; : .p5.fromret r]; .p5.cmds};',
-  '.p5.rundraw:{[input;doc] .p5.reset[]; .p5.document:doc; document:doc; .p5.phase:`draw; r:.[draw;(.p5.state;input;doc);{("error";string x)}]; if[0h=type r; if[0<count r; if["error"~first r; r1:.[draw;(.p5.state;input);{("error";string x)}]; if[(104h<>type r1) and not ("error"~first r1); r:r1]]]]; if[0h=type r; if[0<count r; if["error"~first r; r2:.[draw;enlist input;{("error";string x)}]; if[(104h<>type r2) and not ("error"~first r2); r:r2]]]]; if[0h=type r; if[0<count r; if["error"~first r; r3:@[draw;();{("error";string x)}]; if[(104h<>type r3) and not ("error"~first r3); r:r3]]]]; .p5.phase:`idle; if[0h=type r; if[0<count r; if["error"~first r; :r]]]; sr:.p5.setstate r; if[0h=type sr; if[0<count sr; if["error"~first sr; :sr]]]; if[0=count .p5.cmds; : .p5.fromret r]; .p5.cmds};',
+  `.p5.runsetup:{[doc] .p5.reset[]; .p5.state:([]); .p5.document:doc; document:doc; .p5.phase:\`setup; r:@[.p5.userSetup;doc;{("error";string x)}]; if[0h=type r; if[0<count r; if["error"~first r; if["${EMPTY_SETUP_ERROR}"~string r 1; :r]; r0:@[.p5.userSetup;();{("error";string x)}]; if[(104h<>type r0) and not ("error"~first r0); r:r0]]]]; .p5.phase:\`idle; if[0h=type r; if[0<count r; if["error"~first r; :r]]]; sr:.p5.setstate r; if[0h=type sr; if[0<count sr; if["error"~first sr; :sr]]]; if[0=count .p5.cmds; : .p5.fromret r]; .p5.cmds};`,
+  `.p5.rundraw:{[input;doc] .p5.reset[]; .p5.document:doc; document:doc; .p5.phase:\`draw; r:.[.p5.userDraw;(.p5.state;input;doc);{("error";string x)}]; if[0h=type r; if[0<count r; if["error"~first r; if["${EMPTY_DRAW_ERROR}"~string r 1; :r]; r1:.[.p5.userDraw;(.p5.state;input);{("error";string x)}]; if[(104h<>type r1) and not ("error"~first r1); r:r1]]]]; if[0h=type r; if[0<count r; if["error"~first r; r2:.[.p5.userDraw;enlist input;{("error";string x)}]; if[(104h<>type r2) and not ("error"~first r2); r:r2]]]]; if[0h=type r; if[0<count r; if["error"~first r; r3:@[.p5.userDraw;();{("error";string x)}]; if[(104h<>type r3) and not ("error"~first r3); r:r3]]]]; .p5.phase:\`idle; if[0h=type r; if[0<count r; if["error"~first r; :r]]]; sr:.p5.setstate r; if[0h=type sr; if[0<count sr; if["error"~first sr; :sr]]]; if[0=count .p5.cmds; : .p5.fromret r]; .p5.cmds};`,
   '.p5.dispatch:{[id;fn] r:@[fn;();{("error";string x)}]; -1 .j.j (`id`result!(id;r))};'
 ].join('\n');
 
@@ -287,33 +321,33 @@ function combineRunCode(mainCode, helperFiles) {
 }
 
 const API_REWRITE = [
-  ['createCanvas', 'p5createcanvas'],
-  ['resizeCanvas', 'p5resizecanvas'],
-  ['frameRate', 'p5framerate'],
-  ['clear', 'p5clear'],
-  ['fill', 'p5fill'],
-  ['noFill', 'p5nofill'],
-  ['stroke', 'p5stroke'],
-  ['noStroke', 'p5nostroke'],
-  ['strokeWeight', 'p5strokeweight'],
-  ['line', 'p5line'],
-  ['rect', 'p5rect'],
-  ['circle', 'p5circle'],
-  ['ellipse', 'p5ellipse'],
-  ['triangle', 'p5triangle'],
-  ['point', 'p5point'],
-  ['textSize', 'p5textsize'],
-  ['textAlign', 'p5textalign'],
-  ['textFont', 'p5textfont'],
-  ['text', 'p5text'],
-  ['push', 'p5push'],
-  ['pop', 'p5pop'],
-  ['translate', 'p5translate'],
-  ['rotate', 'p5rotate'],
-  ['scale', 'p5scale'],
-  ['random', 'p5random'],
-  ['map', 'p5map'],
-  ['constrain', 'p5constrain']
+  ['createCanvas', '.p5createcanvas'],
+  ['resizeCanvas', '.p5resizecanvas'],
+  ['frameRate', '.p5framerate'],
+  ['clear', '.p5clear'],
+  ['fill', '.p5fill'],
+  ['noFill', '.p5nofill'],
+  ['stroke', '.p5stroke'],
+  ['noStroke', '.p5nostroke'],
+  ['strokeWeight', '.p5strokeweight'],
+  ['line', '.p5line'],
+  ['rect', '.p5rect'],
+  ['circle', '.p5circle'],
+  ['ellipse', '.p5ellipse'],
+  ['triangle', '.p5triangle'],
+  ['point', '.p5point'],
+  ['textSize', '.p5textsize'],
+  ['textAlign', '.p5textalign'],
+  ['textFont', '.p5textfont'],
+  ['text', '.p5text'],
+  ['push', '.p5push'],
+  ['pop', '.p5pop'],
+  ['translate', '.p5translate'],
+  ['rotate', '.p5rotate'],
+  ['scale', '.p5scale'],
+  ['random', '.p5random'],
+  ['map', '.p5map'],
+  ['constrain', '.p5constrain']
 ];
 
 function preprocessSketchCode(code) {
@@ -342,7 +376,7 @@ function preprocessSketchCode(code) {
   }
   out = flat.replace(/\s+/g, ' ').trim();
 
-  out = out.replace(/\bbackground\s*\[([^\]]*)\]/g, (_, inner) => `p5background[(${inner})]`);
+  out = out.replace(/\bbackground\s*\[([^\]]*)\]/g, (_, inner) => `.p5background[(${inner})]`);
 
   const tupleArgMin = {
     circle: 3,
@@ -372,6 +406,7 @@ function preprocessSketchCode(code) {
 class QSession {
   constructor() {
     this.proc = null;
+    this.qSpawn = null;
     this.stdoutBuffer = '';
     this.stderrBuffer = '';
     this.pending = new Map();
@@ -381,7 +416,8 @@ class QSession {
 
   async start() {
     await fsp.mkdir(TMP_DIR, { recursive: true });
-    const proc = spawn('q', ['-q'], {
+    this.qSpawn = getQSpawnSpec();
+    const proc = spawn(this.qSpawn.command, this.qSpawn.args, {
       cwd: ROOT,
       stdio: ['pipe', 'pipe', 'pipe']
     });
@@ -444,34 +480,32 @@ class QSession {
   }
 
   async resetAndLoad(code) {
-    if (this.proc) {
-      const oldProc = this.proc;
-      await new Promise((resolve) => {
-        let done = false;
-        const finish = () => {
-          if (!done) {
-            done = true;
-            resolve();
-          }
-        };
-        oldProc.once('exit', finish);
-        oldProc.kill('SIGTERM');
-        setTimeout(finish, 120);
-      });
+    if (!this.proc) {
+      this.stdoutBuffer = '';
+      this.stderrBuffer = '';
+      this.pending.clear();
+      this.nextId = 1;
+      await this.start();
     }
-    this.stdoutBuffer = '';
-    this.stderrBuffer = '';
-    this.pending.clear();
-    this.nextId = 1;
-
-    await this.start();
 
     const sketchId = crypto.randomBytes(8).toString('hex');
     const sketchPath = path.join(TMP_DIR, `sketch-${sketchId}.q`);
     const rewritten = preprocessSketchCode(code);
-    await fsp.writeFile(sketchPath, `${rewritten}\n`, 'utf8');
+    const runNamespace = `.p5run${sketchId}`;
+    const wrapped = [
+      `.p5.userSetup:{[doc] ("error";"${EMPTY_SETUP_ERROR}")};`,
+      `.p5.userDraw:{[state;input;doc] ("error";"${EMPTY_DRAW_ERROR}")};`,
+      '.p5.activeRunId:"";',
+      `\\d ${runNamespace}`,
+      rewritten,
+      '.p5.userSetup:setup;',
+      '.p5.userDraw:draw;',
+      `.p5.activeRunId:"${sketchId}";`,
+      '\\d .'
+    ].join('\n');
+    await fsp.writeFile(sketchPath, `${wrapped}\n`, 'utf8');
 
-    this.proc.stdin.write(`\\l ${sketchPath.replace(/\\/g, '/')}\n`);
+    this.proc.stdin.write(`\\l ${toQLoadPath(sketchPath, this.qSpawn)}\n`);
     await new Promise((resolve) => setTimeout(resolve, 90));
     // q can emit non-fatal stderr lines around \l even when the script loads.
     // Actual setup/draw failures are surfaced through .p5.runsetup/.p5.rundraw.
@@ -546,19 +580,13 @@ wss.on('connection', async (ws) => {
   const q = new QSession();
   let running = false;
   let messageQueue = Promise.resolve();
+  let ready = false;
+  const pendingMessages = [];
   q.onStdoutLine = (line) => {
     sendJson(ws, { type: 'stdout', line });
   };
 
-  try {
-    await q.start();
-  } catch (err) {
-    sendJson(ws, { type: 'serverError', message: `Unable to start q: ${err.message}` });
-    ws.close();
-    return;
-  }
-
-  ws.on('message', (raw) => {
+  const processMessage = (raw) => {
     messageQueue = messageQueue
       .then(async () => {
         let msg;
@@ -606,7 +634,27 @@ wss.on('connection', async (ws) => {
         }
       })
       .catch(() => {});
+  };
+
+  ws.on('message', (raw) => {
+    if (!ready) {
+      pendingMessages.push(raw);
+      return;
+    }
+    processMessage(raw);
   });
+
+  try {
+    await q.start();
+    ready = true;
+    for (const raw of pendingMessages.splice(0)) {
+      processMessage(raw);
+    }
+  } catch (err) {
+    sendJson(ws, { type: 'serverError', message: `Unable to start q: ${err.message}` });
+    ws.close();
+    return;
+  }
 
   ws.on('close', async () => {
     running = false;
