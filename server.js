@@ -108,25 +108,27 @@ const RUNTIME_BOOT = [
   '.p5.emit6:{[name;a;b;c;d;e;f] .p5.emit[name;(a;b;c;d;e;f)]};',
   '.p5.tab:{[x] (98h=type x) or 99h=type x};',
   '.p5.istable:{[x] (98h=type x) or 99h=type x};',
-  '.p5.aslist:{[x] $[0h=type x; x; enlist x]};',
+  '.p5.aslist:{[x] $[(type x)>=0h; x; enlist x]};',
   '.p5.emitcolor:{[name;xs] n:count xs; if[1=n; :.p5.emit1[name;xs 0]]; if[2=n; :.p5.emit2[name;xs 0;xs 1]]; if[3=n; :.p5.emit3[name;xs 0;xs 1;xs 2]]; if[4=n; :.p5.emit4[name;xs 0;xs 1;xs 2;xs 3]]; ::};',
   '.p5.hasfill:{[ks] (`fill in ks) or (`fillR in ks) or (`noFill in ks)};',
   '.p5.hasstroke:{[ks] (`stroke in ks) or (`strokeR in ks) or (`noStroke in ks)};',
   '.p5.req:{[row;pri;alts;fname] ks:key row; if[pri in ks; :row pri]; if[0<count alts; hits:ks inter alts; if[0<count hits; :row first hits]]; \'(fname,": missing column ",string pri)};',
+  '.p5.reqidx:{[row;col;idx;fname] v:row col; if[(type v)<0h; if[0=idx; :v]; \'(fname,": column ",string col," must have at least ",string (1+idx)," values")]; if[idx<count v; :v idx]; \'(fname,": column ",string col," must have at least ",string (1+idx)," values")};',
+  '.p5.reqfromvec:{[row;vec;idx;pri;alts;fname] if[vec in key row; :.p5.reqidx[row;vec;idx;fname]]; .p5.req[row;pri;alts;fname]};',
   '.p5.applycolor:{[row;dofill;dostroke] ks:key row; if[dofill and not .p5.hasfill ks; .p5.emit1["fill";255]]; if[dostroke and not .p5.hasstroke ks; .p5.emit3["stroke";0;0;0]]; if[dostroke and not (`strokeWeight in ks); .p5.emit1["strokeWeight";4]]; if[`noFill in ks; if[row`noFill; .p5.emit0["noFill"]]]; if[`fill in ks; .p5.emitcolor["fill";.p5.aslist row`fill]]; if[`fillR in ks; .p5.emitcolor["fill";$[`fillA in ks;(row`fillR;row`fillG;row`fillB;row`fillA);(row`fillR;row`fillG;row`fillB)]]]; if[`stroke in ks; .p5.emitcolor["stroke";.p5.aslist row`stroke]]; if[`strokeR in ks; .p5.emitcolor["stroke";$[`strokeA in ks;(row`strokeR;row`strokeG;row`strokeB;row`strokeA);(row`strokeR;row`strokeG;row`strokeB)]]]; if[`strokeWeight in ks; .p5.emit1["strokeWeight";row`strokeWeight]]; ::};',
-  '.p5.circlerow:{[row] .p5.applycolor[row;1b;0b]; xv:.p5.req[row;`x;enlist `cx;"circle"]; yv:.p5.req[row;`y;enlist `cy;"circle"]; dv:.p5.req[row;`d;enlist `diameter;"circle"]; .p5.emit3["circle";xv;yv;dv]};',
+  '.p5.circlerow:{[row] .p5.applycolor[row;1b;0b]; xv:.p5.reqfromvec[row;`p;0;`x;enlist `cx;"circle"]; yv:.p5.reqfromvec[row;`p;1;`y;enlist `cy;"circle"]; dv:.p5.req[row;`d;enlist `diameter;"circle"]; .p5.emit3["circle";xv;yv;dv]};',
   '.p5.circlerows:{[t] {.p5.circlerow x} each t;::};',
-  '.p5.rectrow:{[row] .p5.applycolor[row;1b;0b]; xv:.p5.req[row;`x;();"rect"]; yv:.p5.req[row;`y;();"rect"]; wv:.p5.req[row;`w;enlist `width;"rect"]; hv:.p5.req[row;`h;enlist `height;"rect"]; $[`r in key row; .p5.emit5["rect";xv;yv;wv;hv;row`r]; .p5.emit4["rect";xv;yv;wv;hv]]};',
+  '.p5.rectrow:{[row] .p5.applycolor[row;1b;0b]; xv:.p5.reqfromvec[row;`p;0;`x;();"rect"]; yv:.p5.reqfromvec[row;`p;1;`y;();"rect"]; wv:.p5.reqfromvec[row;`size;0;`w;`width`wh;"rect"]; hv:.p5.reqfromvec[row;`size;1;`h;`height`wh;"rect"]; $[`r in key row; .p5.emit5["rect";xv;yv;wv;hv;row`r]; .p5.emit4["rect";xv;yv;wv;hv]]};',
   '.p5.rectrows:{[t] {.p5.rectrow x} each t;::};',
-  '.p5.linerow:{[row] .p5.applycolor[row;0b;1b]; x1:.p5.req[row;`x1;();"line"]; y1:.p5.req[row;`y1;();"line"]; x2:.p5.req[row;`x2;();"line"]; y2:.p5.req[row;`y2;();"line"]; .p5.emit4["line";x1;y1;x2;y2]};',
+  '.p5.linerow:{[row] .p5.applycolor[row;0b;1b]; x1:.p5.reqfromvec[row;`p1;0;`x1;();"line"]; y1:.p5.reqfromvec[row;`p1;1;`y1;();"line"]; x2:.p5.reqfromvec[row;`p2;0;`x2;();"line"]; y2:.p5.reqfromvec[row;`p2;1;`y2;();"line"]; .p5.emit4["line";x1;y1;x2;y2]};',
   '.p5.linerows:{[t] {.p5.linerow x} each t;::};',
-  '.p5.ellipserow:{[row] .p5.applycolor[row;1b;0b]; xv:.p5.req[row;`x;();"ellipse"]; yv:.p5.req[row;`y;();"ellipse"]; wv:.p5.req[row;`w;enlist `width;"ellipse"]; hv:.p5.req[row;`h;enlist `height;"ellipse"]; .p5.emit4["ellipse";xv;yv;wv;hv]};',
+  '.p5.ellipserow:{[row] .p5.applycolor[row;1b;0b]; xv:.p5.reqfromvec[row;`p;0;`x;();"ellipse"]; yv:.p5.reqfromvec[row;`p;1;`y;();"ellipse"]; wv:.p5.reqfromvec[row;`size;0;`w;`width`wh;"ellipse"]; hv:.p5.reqfromvec[row;`size;1;`h;`height`wh;"ellipse"]; .p5.emit4["ellipse";xv;yv;wv;hv]};',
   '.p5.ellipserows:{[t] {.p5.ellipserow x} each t;::};',
-  '.p5.trianglerow:{[row] .p5.applycolor[row;1b;0b]; .p5.emit6["triangle"; .p5.req[row;`x1;();"triangle"]; .p5.req[row;`y1;();"triangle"]; .p5.req[row;`x2;();"triangle"]; .p5.req[row;`y2;();"triangle"]; .p5.req[row;`x3;();"triangle"]; .p5.req[row;`y3;();"triangle"]]};',
+  '.p5.trianglerow:{[row] .p5.applycolor[row;1b;0b]; .p5.emit6["triangle"; .p5.reqfromvec[row;`p1;0;`x1;();"triangle"]; .p5.reqfromvec[row;`p1;1;`y1;();"triangle"]; .p5.reqfromvec[row;`p2;0;`x2;();"triangle"]; .p5.reqfromvec[row;`p2;1;`y2;();"triangle"]; .p5.reqfromvec[row;`p3;0;`x3;();"triangle"]; .p5.reqfromvec[row;`p3;1;`y3;();"triangle"]]};',
   '.p5.trianglerows:{[t] {.p5.trianglerow x} each t;::};',
-  '.p5.pointrow:{[row] .p5.applycolor[row;0b;1b]; .p5.emit2["point"; .p5.req[row;`x;();"point"]; .p5.req[row;`y;();"point"]]};',
+  '.p5.pointrow:{[row] .p5.applycolor[row;0b;1b]; .p5.emit2["point"; .p5.reqfromvec[row;`p;0;`x;();"point"]; .p5.reqfromvec[row;`p;1;`y;();"point"]]};',
   '.p5.pointrows:{[t] {.p5.pointrow x} each t;::};',
-  '.p5.textrow:{[row] .p5.applycolor[row;1b;0b]; tv:.p5.req[row;`txt;enlist `text;"text"]; xv:.p5.req[row;`x;();"text"]; yv:.p5.req[row;`y;();"text"]; .p5.emit3["text";tv;xv;yv]};',
+  '.p5.textrow:{[row] .p5.applycolor[row;1b;0b]; tv:.p5.req[row;`txt;enlist `text;"text"]; xv:.p5.reqfromvec[row;`p;0;`x;();"text"]; yv:.p5.reqfromvec[row;`p;1;`y;();"text"]; .p5.emit3["text";tv;xv;yv]};',
   '.p5.textrows:{[t] {.p5.textrow x} each t;::};',
   '.p5createcanvas:{[w;h] .p5.emit2["createCanvas";w;h]};',
   '.p5resizecanvas:{[w;h] .p5.emit2["resizeCanvas";w;h]};',
@@ -202,16 +204,29 @@ function qInt(value, fallback = 0) {
   return `${safe}i`;
 }
 
+function qFloatPair(value, fallbackA = 0, fallbackB = 0) {
+  const pair = Array.isArray(value) ? value : [];
+  return `(${qFloat(pair[0], fallbackA)};${qFloat(pair[1], fallbackB)})`;
+}
+
 function qInputTableLiteral(raw) {
   const input = raw && typeof raw === 'object' ? raw : {};
   const keys = Array.isArray(input.keysDown) ? input.keysDown : [];
   const keysExpr = keys.length ? `(${keys.map((k) => qSymbol(k)).join(';')})` : '()';
-  const columns = '`mx`my`pmx`pmy`mousePressed`mouseButton`keysDown`key`keyCode`keyPressed`keyReleased`wheelDelta`ts';
+  const m = Array.isArray(input.m) ? input.m : [input.mx, input.my];
+  const pm = Array.isArray(input.pm) ? input.pm : [input.pmx, input.pmy];
+  const mx = input.mx ?? m[0];
+  const my = input.my ?? m[1];
+  const pmx = input.pmx ?? pm[0];
+  const pmy = input.pmy ?? pm[1];
+  const columns = '`m`pm`mx`my`pmx`pmy`mousePressed`mouseButton`keysDown`key`keyCode`keyPressed`keyReleased`wheelDelta`ts';
   const values = [
-    `enlist ${qFloat(input.mx)}`,
-    `enlist ${qFloat(input.my)}`,
-    `enlist ${qFloat(input.pmx)}`,
-    `enlist ${qFloat(input.pmy)}`,
+    `enlist ${qFloatPair(m)}`,
+    `enlist ${qFloatPair(pm)}`,
+    `enlist ${qFloat(mx)}`,
+    `enlist ${qFloat(my)}`,
+    `enlist ${qFloat(pmx)}`,
+    `enlist ${qFloat(pmy)}`,
     `enlist ${qBool(input.mousePressed)}`,
     `enlist ${qSymbol(input.mouseButton || 'none')}`,
     `enlist ${keysExpr}`,
@@ -227,16 +242,32 @@ function qInputTableLiteral(raw) {
 
 function qDocumentTableLiteral(raw) {
   const doc = raw && typeof raw === 'object' ? raw : {};
-  const columns = '`cw`ch`vw`vh`dw`dh`sx`sy`dpr`ts';
+  const c = Array.isArray(doc.c) ? doc.c : [doc.cw, doc.ch];
+  const v = Array.isArray(doc.v) ? doc.v : [doc.vw, doc.vh];
+  const d = Array.isArray(doc.d) ? doc.d : [doc.dw, doc.dh];
+  const s = Array.isArray(doc.s) ? doc.s : [doc.sx, doc.sy];
+  const cw = doc.cw ?? c[0];
+  const ch = doc.ch ?? c[1];
+  const vw = doc.vw ?? v[0];
+  const vh = doc.vh ?? v[1];
+  const dw = doc.dw ?? d[0];
+  const dh = doc.dh ?? d[1];
+  const sx = doc.sx ?? s[0];
+  const sy = doc.sy ?? s[1];
+  const columns = '`c`v`d`s`cw`ch`vw`vh`dw`dh`sx`sy`dpr`ts';
   const values = [
-    `enlist ${qFloat(doc.cw)}`,
-    `enlist ${qFloat(doc.ch)}`,
-    `enlist ${qFloat(doc.vw)}`,
-    `enlist ${qFloat(doc.vh)}`,
-    `enlist ${qFloat(doc.dw)}`,
-    `enlist ${qFloat(doc.dh)}`,
-    `enlist ${qFloat(doc.sx)}`,
-    `enlist ${qFloat(doc.sy)}`,
+    `enlist ${qFloatPair(c)}`,
+    `enlist ${qFloatPair(v)}`,
+    `enlist ${qFloatPair(d)}`,
+    `enlist ${qFloatPair(s)}`,
+    `enlist ${qFloat(cw)}`,
+    `enlist ${qFloat(ch)}`,
+    `enlist ${qFloat(vw)}`,
+    `enlist ${qFloat(vh)}`,
+    `enlist ${qFloat(dw)}`,
+    `enlist ${qFloat(dh)}`,
+    `enlist ${qFloat(sx)}`,
+    `enlist ${qFloat(sy)}`,
     `enlist ${qFloat(doc.dpr, 1)}`,
     `enlist ${qFloat(doc.ts)}`
   ];
@@ -249,6 +280,135 @@ function toRuntimeError(result) {
   }
   const detail = Array.isArray(result[1]) ? result[1].join('') : String(result[1] || 'q runtime error');
   return new Error(detail);
+}
+
+function extractQContextLine(stderrText) {
+  const lines = String(stderrText || '').split('\n');
+  for (const line of lines) {
+    const match = line.match(/\[\d+\]\s+(.*)$/);
+    if (!match) {
+      continue;
+    }
+    const snippet = match[1].trimEnd();
+    if (!snippet || snippet.startsWith('\\l ')) {
+      continue;
+    }
+    return snippet;
+  }
+  return '';
+}
+
+function findSnippetLineNumber(source, snippet) {
+  const wanted = String(snippet || '').trim();
+  if (!wanted) {
+    return null;
+  }
+
+  const lines = String(source || '').split('\n');
+  const hits = [];
+  for (let i = 0; i < lines.length; i += 1) {
+    const raw = lines[i];
+    const trimmed = raw.trim();
+    if (!trimmed) {
+      continue;
+    }
+    if (trimmed === wanted || raw.includes(wanted) || wanted.includes(trimmed)) {
+      hits.push(i + 1);
+    }
+  }
+
+  return hits.length === 1 ? hits[0] : null;
+}
+
+function formatCodeFrame(source, targetLine, context = 2) {
+  const lines = String(source || '').split('\n');
+  if (!Number.isInteger(targetLine) || targetLine < 1 || targetLine > lines.length) {
+    return '';
+  }
+
+  const start = Math.max(1, targetLine - context);
+  const end = Math.min(lines.length, targetLine + context);
+  const width = String(end).length;
+  return lines
+    .slice(start - 1, end)
+    .map((line, idx) => {
+      const lineNo = start + idx;
+      const marker = lineNo === targetLine ? '>' : ' ';
+      return `${marker} ${String(lineNo).padStart(width, ' ')} | ${line}`;
+    })
+    .join('\n');
+}
+
+function formatSketchLoadError({ code, loadStderr, parserStderr, missingSetup, missingDraw }) {
+  const issues = [];
+  if (missingSetup) {
+    issues.push('setup not loaded');
+  }
+  if (missingDraw) {
+    issues.push('draw not loaded');
+  }
+
+  const detailText = String(parserStderr || loadStderr || '').trim();
+  const contextLine = extractQContextLine(detailText);
+  const lineNumber = findSnippetLineNumber(code, contextLine);
+  const frame = formatCodeFrame(code, lineNumber);
+  const parts = [];
+
+  parts.push(
+    issues.length
+      ? `${issues.join(' and ')} because the sketch failed to load. This usually means a syntax error or top-level evaluation error.`
+      : 'The sketch failed to load. This usually means a syntax error or top-level evaluation error.'
+  );
+
+  if (lineNumber) {
+    parts.push(`Likely source near line ${lineNumber}:\n${frame}`);
+  } else if (contextLine) {
+    parts.push(`Likely source snippet:\n${contextLine}`);
+  }
+
+  if (detailText) {
+    parts.push(`q reported:\n${detailText}`);
+  }
+
+  parts.push('Check brackets, semicolons, and any top-level expressions that run before `setup`/`draw` are assigned.');
+  return parts.join('\n\n');
+}
+
+async function captureQParserDiagnostics(code) {
+  const source = String(code || '').trim();
+  if (!source) {
+    return '';
+  }
+
+  const qSpawn = getQSpawnSpec();
+  const proc = spawn(qSpawn.command, qSpawn.args, {
+    cwd: ROOT,
+    stdio: ['pipe', 'pipe', 'pipe']
+  });
+
+  proc.stdout.setEncoding('utf8');
+  proc.stderr.setEncoding('utf8');
+
+  let stderr = '';
+  proc.stderr.on('data', (chunk) => {
+    stderr += chunk;
+  });
+
+  const exited = new Promise((resolve) => {
+    proc.once('exit', resolve);
+  });
+
+  proc.stdin.write(`${source}\n\\\\\n`);
+
+  const killTimer = setTimeout(() => {
+    if (proc.exitCode == null) {
+      proc.kill('SIGTERM');
+    }
+  }, Math.max(250, Q_LOAD_SETTLE_MS * 3));
+
+  await exited.catch(() => {});
+  clearTimeout(killTimer);
+  return stderr.trim();
 }
 
 function normalizeCommands(payload) {
@@ -277,7 +437,7 @@ function stripSketchComments(code) {
     .join('\n');
 }
 
-function splitTopLevelStatements(code) {
+function splitTopLevelStatementsDetailed(code) {
   const src = String(code || '');
   const out = [];
   let cur = '';
@@ -285,9 +445,16 @@ function splitTopLevelStatements(code) {
   let braces = 0;
   let brackets = 0;
   let parens = 0;
+  let line = 1;
+  let stmtStartLine = 1;
+  let sawNonWhitespace = false;
 
   for (let i = 0; i < src.length; i += 1) {
     const ch = src[i];
+    if (!sawNonWhitespace && !/\s/.test(ch)) {
+      stmtStartLine = line;
+      sawNonWhitespace = true;
+    }
     cur += ch;
 
     if (ch === '"') {
@@ -318,9 +485,14 @@ function splitTopLevelStatements(code) {
     if (ch === ';' && braces === 0 && brackets === 0 && parens === 0) {
       const stmt = cur.trim().replace(/;$/, '').trim();
       if (stmt) {
-        out.push(stmt);
+        out.push({ text: stmt, startLine: stmtStartLine, endLine: line });
       }
       cur = '';
+      sawNonWhitespace = false;
+    }
+
+    if (ch === '\n') {
+      line += 1;
     }
   }
 
@@ -330,10 +502,95 @@ function splitTopLevelStatements(code) {
 
   const tail = cur.trim();
   if (tail) {
-    out.push(tail);
+    out.push({ text: tail, startLine: sawNonWhitespace ? stmtStartLine : line, endLine: line });
   }
 
   return out;
+}
+
+function splitTopLevelStatements(code) {
+  return splitTopLevelStatementsDetailed(code).map((entry) => entry.text);
+}
+
+function formatCodeRange(source, startLine, endLine) {
+  const lines = String(source || '').split('\n');
+  if (!Number.isInteger(startLine) || !Number.isInteger(endLine) || startLine < 1 || endLine < startLine) {
+    return '';
+  }
+
+  const safeEnd = Math.min(endLine, lines.length);
+  const width = String(safeEnd).length;
+  return lines
+    .slice(startLine - 1, safeEnd)
+    .map((line, idx) => `${String(startLine + idx).padStart(width, ' ')} | ${line}`)
+    .join('\n');
+}
+
+function findTopLevelFunctionSource(code, fnName) {
+  let statements;
+  try {
+    statements = splitTopLevelStatementsDetailed(code);
+  } catch {
+    return null;
+  }
+
+  const pattern = new RegExp(`^\\s*${fnName}\\s*:\\s*\\{`);
+  return statements.find((stmt) => pattern.test(stmt.text)) || null;
+}
+
+function listTopLevelFunctions(code) {
+  let statements;
+  try {
+    statements = splitTopLevelStatementsDetailed(code);
+  } catch {
+    return new Map();
+  }
+
+  const out = new Map();
+  for (const stmt of statements) {
+    const m = stmt.text.match(/^\s*([A-Za-z_][A-Za-z0-9_.]*)\s*:\s*\{/);
+    if (m) {
+      out.set(m[1], stmt);
+    }
+  }
+  return out;
+}
+
+function extractCalledFunctionNames(sourceText) {
+  const src = String(sourceText || '');
+  const out = [];
+  const re = /\b([A-Za-z_][A-Za-z0-9_.]*)\s*\[/g;
+  let m = re.exec(src);
+  while (m) {
+    out.push(m[1]);
+    m = re.exec(src);
+  }
+  return Array.from(new Set(out));
+}
+
+function formatPhaseRuntimeError(phase, detail, code) {
+  const message = String(detail || 'q runtime error').trim();
+  const parts = [`Runtime error in ${phase}: ${message}`];
+  const fnMap = listTopLevelFunctions(code);
+  const fnStmt = fnMap.get(phase) || findTopLevelFunctionSource(code, phase);
+  if (fnStmt) {
+    parts.push(`Active ${phase} definition:\n${formatCodeRange(code, fnStmt.startLine, fnStmt.endLine)}`);
+    const genericSymbol = /^[A-Za-z][A-Za-z0-9_]*$/.test(message);
+    if (genericSymbol) {
+      const helperNames = extractCalledFunctionNames(fnStmt.text)
+        .filter((name) => name !== phase && name !== 'setup' && name !== 'draw' && fnMap.has(name))
+        .slice(0, 3);
+      for (const helperName of helperNames) {
+        const helperStmt = fnMap.get(helperName);
+        if (helperStmt) {
+          parts.push(
+            `Referenced helper ${helperName} definition:\n${formatCodeRange(code, helperStmt.startLine, helperStmt.endLine)}`
+          );
+        }
+      }
+    }
+  }
+  return parts.join('\n\n');
 }
 
 function validateHelperTabCode(tabName, code) {
@@ -608,11 +865,21 @@ class QWorker {
         '\\d .'
       ].join('\n');
       await fsp.writeFile(sketchPath, `${wrapped}\n`, 'utf8');
+      this.stderrBuffer = '';
       this.proc.stdin.write(`\\l ${toQLoadPath(sketchPath, this.qSpawn)}\n`);
       await new Promise((resolve) => setTimeout(resolve, Q_LOAD_SETTLE_MS));
-      // q can emit non-fatal stderr lines around \l even when the script loads.
-      // Actual setup/draw failures are surfaced through .p5.runsetup/.p5.rundraw.
+      const loadStderr = this.stderrBuffer.trim();
+      const loadState = await this.invoke(
+        `(${qString(sketchId)}~.p5.sget[${sessionExpr};\`runId];.p5.sget[${sessionExpr};\`setup]~.p5.emptysetup;.p5.sget[${sessionExpr};\`draw]~.p5.emptydraw)`
+      );
+      const loaded = Array.isArray(loadState) ? Boolean(loadState[0]) : false;
+      const missingSetup = Array.isArray(loadState) ? Boolean(loadState[1]) : true;
+      const missingDraw = Array.isArray(loadState) ? Boolean(loadState[2]) : true;
       this.stderrBuffer = '';
+      if (!loaded || missingSetup || missingDraw) {
+        const parserStderr = await captureQParserDiagnostics(code).catch(() => '');
+        throw new Error(formatSketchLoadError({ code, loadStderr, parserStderr, missingSetup, missingDraw }));
+      }
       this.runCount += 1;
     }, sessionId);
   }
@@ -736,6 +1003,7 @@ wss.on('connection', async (ws) => {
   const sessionId = crypto.randomBytes(12).toString('hex');
   const worker = workerPool.pickWorker();
   let running = false;
+  let activeCode = '';
   let messageQueue = Promise.resolve();
   worker.attachSession(sessionId, (line) => {
     sendJson(ws, { type: 'stdout', line });
@@ -745,6 +1013,8 @@ wss.on('connection', async (ws) => {
     messageQueue = messageQueue
       .then(async () => {
         let msg;
+        let phase = null;
+        let phaseCode = activeCode;
         try {
           msg = JSON.parse(raw.toString('utf8'));
         } catch {
@@ -755,14 +1025,17 @@ wss.on('connection', async (ws) => {
       if (msg.type === 'run') {
         running = false;
         const mergedCode = combineRunCode(msg.code || '', msg.files || []);
+        phaseCode = mergedCode;
         await worker.resetAndLoad(sessionId, mergedCode);
         const docTableExpr = qDocumentTableLiteral(msg.document);
+        phase = 'setup';
         const setupResult = await worker.runSetup(sessionId, docTableExpr);
         const setupError = toRuntimeError(setupResult);
         if (setupError) {
-          throw setupError;
+          throw new Error(formatPhaseRuntimeError('setup', setupError.message, mergedCode));
         }
         const setupCommands = normalizeCommands(setupResult);
+        activeCode = mergedCode;
         running = true;
         sendJson(ws, { type: 'runResult', ok: true, setup: setupCommands });
       }
@@ -771,10 +1044,11 @@ wss.on('connection', async (ws) => {
         const frame = Number(msg.frame || 0);
         const inputTableExpr = qInputTableLiteral(msg.input);
         const docTableExpr = qDocumentTableLiteral(msg.document);
+        phase = 'draw';
         const stepResult = await worker.runDraw(sessionId, inputTableExpr, docTableExpr);
         const stepError = toRuntimeError(stepResult);
         if (stepError) {
-          throw stepError;
+          throw new Error(formatPhaseRuntimeError('draw', stepError.message, activeCode));
         }
         const commands = normalizeCommands(stepResult);
         sendJson(ws, { type: 'stepResult', frame, commands });
@@ -785,7 +1059,11 @@ wss.on('connection', async (ws) => {
             sendJson(ws, { type: 'stopped' });
           }
         } catch (err) {
-          sendJson(ws, { type: 'runtimeError', message: err.message });
+          const message =
+            phase && !String(err?.message || '').includes(`Runtime error in ${phase}:`)
+              ? formatPhaseRuntimeError(phase, err?.message, phaseCode)
+              : String(err?.message || 'q runtime error');
+          sendJson(ws, { type: 'runtimeError', message });
         }
       })
       .catch(() => {});

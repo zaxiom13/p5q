@@ -22,7 +22,7 @@ function waitForServer(child) {
   });
 }
 
-test('text[table] supports per-row fill color columns', async () => {
+test('text[table] supports packed per-row position and fill columns', async () => {
   const port = 7280 + Math.floor(Math.random() * 40);
   const server = spawn(process.execPath, ['server.js'], {
     cwd: process.cwd(),
@@ -36,7 +36,7 @@ test('text[table] supports per-row fill color columns', async () => {
     const sketch = [
       'setup:{[document]createCanvas[200;120]; ([] tick:enlist 0i)};',
       'draw:{[state;input;document]',
-      '  t:([] txt:("a";"b"); x:20 80f; y:24 48f; fillR:255 0i; fillG:0 255i; fillB:0 120i);',
+      '  t:([] txt:("a";"b"); p:(20 24f;80 48f); fill:(255 0 0i;0 255 120i));',
       '  text[t];',
       '  state',
       '};'

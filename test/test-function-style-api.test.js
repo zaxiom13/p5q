@@ -35,8 +35,9 @@ test('function-style setup[document] and draw[state;input;document] produce rend
 
     const sketch = [
       'setup:{[document]',
-      '  cw:first document[`cw];',
-      '  ch:first document[`ch];',
+      '  canvas:first document[`c];',
+      '  cw:canvas 0;',
+      '  ch:canvas 1;',
       '  createCanvas[cw;ch];',
       '  background[20;20;24];',
       '  textSize[14];',
@@ -44,11 +45,14 @@ test('function-style setup[document] and draw[state;input;document] produce rend
       '};',
       'draw:{[state;input;document]',
       '  tick:first state[`tick];',
+      '  mouse:first input[`m];',
+      '  canvasW:first document[`cw];',
+      '  mouseXAlias:first input[`mx];',
       '  dpr:first document[`dpr];',
-      '  x:100 + 10 * sin tick * 0.1;',
+      '  x:mouseXAlias + 10 * sin tick * 0.1 + 0*canvasW;',
       '  background[0];',
-      '  circle[([] x:enlist x; y:enlist 60f; d:enlist 24f)];',
-      '  text[([] txt:enlist "ok dpr=" , string dpr; x:enlist 20f; y:enlist 18f)];',
+      '  circle[([] p:enlist (x;60f); d:enlist 24f)];',
+      '  text[([] txt:enlist "ok dpr=" , string dpr; p:enlist 20 18f)];',
       '  update tick:tick+1i from state',
       '};'
     ].join('');
@@ -66,14 +70,10 @@ test('function-style setup[document] and draw[state;input;document] produce rend
             type: 'run',
             code: sketch,
             document: {
-              cw: 200,
-              ch: 120,
-              vw: 1200,
-              vh: 800,
-              dw: 1200,
-              dh: 1800,
-              sx: 0,
-              sy: 0,
+              c: [200, 120],
+              v: [1200, 800],
+              d: [1200, 1800],
+              s: [0, 0],
               dpr: 2,
               ts: 1700000000000
             }
@@ -97,10 +97,8 @@ test('function-style setup[document] and draw[state;input;document] produce rend
               type: 'step',
               frame: 1,
               input: {
-                mx: 42,
-                my: 80,
-                pmx: 40,
-                pmy: 79,
+                m: [42, 80],
+                pm: [40, 79],
                 mousePressed: false,
                 mouseButton: 'none',
                 keysDown: ['a'],
@@ -112,14 +110,10 @@ test('function-style setup[document] and draw[state;input;document] produce rend
                 ts: 1700000000000
               },
               document: {
-                cw: 200,
-                ch: 120,
-                vw: 1200,
-                vh: 800,
-                dw: 1200,
-                dh: 1800,
-                sx: 0,
-                sy: 0,
+                c: [200, 120],
+                v: [1200, 800],
+                d: [1200, 1800],
+                s: [0, 0],
                 dpr: 2,
                 ts: 1700000000001
               }

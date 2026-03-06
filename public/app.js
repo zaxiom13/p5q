@@ -30,8 +30,8 @@ const DEFAULT_SKETCH = `// q sketch contract (function-style API):
 // - shape primitives + text are table-only
 
 setup:{[document]
-  vw:first document[\`vw];
-  w:360f | 0.82 * vw;
+  viewport:first document[\`v];
+  w:360f | 0.82 * (viewport 0);
   h:220f | 0.56 * w;
   createCanvas[w;h];
   frameRate[24];
@@ -41,41 +41,33 @@ setup:{[document]
 
 draw:{[state;input;document]
   tick:first state[\`tick];
-  mx:first input[\`mx];
-  cw:first document[\`cw];
-  ch:first document[\`ch];
-  vw:first document[\`vw];
+  mouse:first input[\`m];
+  canvas:first document[\`c];
+  viewport:first document[\`v];
+  mx:mouse 0;
+  cw:canvas 0;
+  ch:canvas 1;
+  vw:viewport 0;
   dpr:first document[\`dpr];
   cx:0.22 0.36 0.5 0.64 0.78 * cw;
   cy:5#(0.52 * ch);
   wobble:10f * sin tick * 0.12;
-  t:([] x:cx + wobble;
-    y:cy;
+  t:([] p:flip (cx + wobble; cy);
     d:0.07 0.085 0.1 0.085 0.07 * ch;
-    fillR:235 235 235 235 235i;
-    fillG:94 120 140 170 200i;
-    fillB:40 60 90 120 160i);
+    fill:flip (235 235 235 235 235i; 94 120 140 170 200i; 40 60 90 120 160i));
 
   background[20;20;24];
   circle[t];
 
   txt:([] txt:("mouse x:"; string floor mx; "canvas:" , string floor cw , "x" , string floor ch; "viewport:" , string floor vw , " dpr=" , string dpr);
-    x:20 108 20 20f;
-    y:32 32 58 80f;
-    fillR:245 235 205 180i;
-    fillG:245 120 225 200i;
-    fillB:245 40 245 220i);
+    p:flip (20 108 20 20f; 32 32 58 80f);
+    fill:flip (245 235 205 180i; 245 120 225 200i; 245 40 245 220i));
   text[txt];
-  rect[([] x:enlist 18f;
-    y:enlist 44f;
-    w:enlist 160f;
-    h:enlist 4f)];
-  triangle[([] x1:enlist 188f;
-    y1:enlist 48f;
-    x2:enlist 204f;
-    y2:enlist 40f;
-    x3:enlist 204f;
-    y3:enlist 56f)];
+  rect[([] p:enlist 18 44f;
+    size:enlist 160 4f)];
+  triangle[([] p1:enlist 188 48f;
+    p2:enlist 204 40f;
+    p3:enlist 204 56f)];
 
   update tick:tick+1i from state
 };
@@ -89,7 +81,7 @@ const HELPER_TEMPLATE = `// Helper tabs may only contain function definitions.
 const API_GLOSSARY = [
   'Canvas: createCanvas[w;h], resizeCanvas[w;h], frameRate[f], background[r;g;b], clear[]',
   'Style: fill[...], noFill[], stroke[...], noStroke[], strokeWeight[w]',
-  'Primitives (table-only): line[t], rect[t], circle[t], ellipse[t], triangle[t], point[t], text[t]',
+  'Primitives (table-only): line[t], rect[t], circle[t], ellipse[t], triangle[t], point[t], text[t] with packed vector columns',
   'Text options: textSize[n], textAlign[a; b], textFont[name; size]',
   'Transforms: push[], pop[], translate[x;y], rotate[a], scale[sx; sy]',
   'Math/utils: random[a; b], map[v;a1;a2;b1;b2], constrain[v;lo;hi], sin[x], cos[x]'
@@ -129,56 +121,57 @@ const P5Q_API_FUNCTIONS = [
 ];
 
 const PRIMITIVE_COLUMN_HELP = [
-  'circle[t]: required x, y, d; aliases cx, cy, diameter; optional fillR/fillG/fillB, strokeR/strokeG/strokeB, strokeWeight',
-  'rect[t]: required x, y, w, h; aliases width, height; optional r (corner radius) + color/stroke columns',
-  'line[t]: required x1, y1, x2, y2; optional strokeR/strokeG/strokeB, strokeWeight',
-  'ellipse[t]: required x, y, w, h; aliases width, height; optional color/stroke columns',
-  'triangle[t]: required x1, y1, x2, y2, x3, y3; optional color/stroke columns',
-  'point[t]: required x, y; optional strokeR/strokeG/strokeB, strokeWeight',
-  'text[t]: required txt, x, y; alias text for txt; optional color/stroke columns'
+  'circle[t]: prefer p:[x y] plus d; aliases x+y, cx+cy, diameter; optional fill/stroke as [r g b] or [r g b a]',
+  'rect[t]: prefer p:[x y] plus size:[w h]; aliases x+y, w+h, width+height, wh; optional r + fill/stroke arrays',
+  'line[t]: prefer p1:[x1 y1] and p2:[x2 y2]; aliases x1+y1 and x2+y2; optional stroke array, strokeWeight',
+  'ellipse[t]: prefer p:[x y] plus size:[w h]; aliases x+y, w+h, width+height, wh; optional fill/stroke arrays',
+  'triangle[t]: prefer p1/p2/p3 point arrays; aliases x1..y3; optional fill/stroke arrays',
+  'point[t]: prefer p:[x y]; aliases x+y; optional stroke array, strokeWeight',
+  'text[t]: required txt (or text) plus p:[x y]; aliases x+y; optional fill/stroke arrays'
 ];
 
 const TABLE_SNIPPETS = [
   {
     label: '/circle',
     documentation: 'Insert circle table template',
-    insertText: 'circle[([] x:enlist ${1:120f}; y:enlist ${2:90f}; d:enlist ${3:36f}; fillR:enlist ${4:255i}; fillG:enlist ${5:255i}; fillB:enlist ${6:255i})];'
+    insertText: 'circle[([] p:enlist ${1:120 90f}; d:enlist ${2:36f}; fill:enlist ${3:255 255 255i})];'
   },
   {
     label: '/rect',
     documentation: 'Insert rect table template',
-    insertText: 'rect[([] x:enlist ${1:100f}; y:enlist ${2:70f}; w:enlist ${3:140f}; h:enlist ${4:80f}; fillR:enlist ${5:255i}; fillG:enlist ${6:255i}; fillB:enlist ${7:255i})];'
+    insertText: 'rect[([] p:enlist ${1:100 70f}; size:enlist ${2:140 80f}; fill:enlist ${3:255 255 255i})];'
   },
   {
     label: '/line',
     documentation: 'Insert line table template',
-    insertText: 'line[([] x1:enlist ${1:20f}; y1:enlist ${2:20f}; x2:enlist ${3:180f}; y2:enlist ${4:100f}; strokeR:enlist ${5:255i}; strokeG:enlist ${6:255i}; strokeB:enlist ${7:255i}; strokeWeight:enlist ${8:2f})];'
+    insertText: 'line[([] p1:enlist ${1:20 20f}; p2:enlist ${2:180 100f}; stroke:enlist ${3:255 255 255i}; strokeWeight:enlist ${4:2f})];'
   },
   {
     label: '/ellipse',
     documentation: 'Insert ellipse table template',
-    insertText: 'ellipse[([] x:enlist ${1:120f}; y:enlist ${2:90f}; w:enlist ${3:70f}; h:enlist ${4:40f}; fillR:enlist ${5:255i}; fillG:enlist ${6:255i}; fillB:enlist ${7:255i})];'
+    insertText: 'ellipse[([] p:enlist ${1:120 90f}; size:enlist ${2:70 40f}; fill:enlist ${3:255 255 255i})];'
   },
   {
     label: '/triangle',
     documentation: 'Insert triangle table template',
-    insertText: 'triangle[([] x1:enlist ${1:80f}; y1:enlist ${2:50f}; x2:enlist ${3:130f}; y2:enlist ${4:120f}; x3:enlist ${5:30f}; y3:enlist ${6:120f}; fillR:enlist ${7:255i}; fillG:enlist ${8:255i}; fillB:enlist ${9:255i})];'
+    insertText: 'triangle[([] p1:enlist ${1:80 50f}; p2:enlist ${2:130 120f}; p3:enlist ${3:30 120f}; fill:enlist ${4:255 255 255i})];'
   },
   {
     label: '/point',
     documentation: 'Insert point table template',
-    insertText: 'point[([] x:enlist ${1:120f}; y:enlist ${2:90f}; strokeR:enlist ${3:255i}; strokeG:enlist ${4:255i}; strokeB:enlist ${5:255i}; strokeWeight:enlist ${6:2f})];'
+    insertText: 'point[([] p:enlist ${1:120 90f}; stroke:enlist ${2:255 255 255i}; strokeWeight:enlist ${3:2f})];'
   },
   {
     label: '/text',
     documentation: 'Insert text table template',
-    insertText: 'text[([] txt:enlist "${1:hello}"; x:enlist ${2:24f}; y:enlist ${3:40f}; fillR:enlist ${4:255i}; fillG:enlist ${5:255i}; fillB:enlist ${6:255i})];'
+    insertText: 'text[([] txt:enlist "${1:hello}"; p:enlist ${2:24 40f}; fill:enlist ${3:255 255 255i})];'
   }
 ];
 
 const INPUT_DOCUMENT_HELP = [
-  'input[`mx], input[`my]: current mouse x/y in canvas coordinates',
-  'input[`pmx], input[`pmy]: previous frame mouse x/y',
+  'input[`m]: current mouse [x y] in canvas coordinates',
+  'input[`pm]: previous frame mouse [x y]',
+  'input[`mx], input[`my], input[`pmx], input[`pmy]: split aliases for the packed mouse vectors',
   'input[`mousePressed]: true while mouse button is down',
   'input[`mouseButton]: `left | `center | `right | `none',
   'input[`keysDown]: symbols for currently-held keys (lowercase)',
@@ -187,10 +180,11 @@ const INPUT_DOCUMENT_HELP = [
   'input[`keyPressed], input[`keyReleased]: one-frame edge flags',
   'input[`wheelDelta]: wheel delta accumulated for this frame',
   'input[`ts]: input snapshot timestamp (ms)',
-  'document[`cw], document[`ch]: current canvas width/height',
-  'document[`vw], document[`vh]: browser viewport width/height',
-  'document[`dw], document[`dh]: full document scrollable width/height',
-  'document[`sx], document[`sy]: page scroll x/y',
+  'document[`c]: current canvas [w h]',
+  'document[`v]: browser viewport [w h]',
+  'document[`d]: full document scrollable [w h]',
+  'document[`s]: page scroll [x y]',
+  'document[`cw], document[`ch], document[`vw], document[`vh], document[`dw], document[`dh], document[`sx], document[`sy]: split aliases for those packed vectors',
   'document[`dpr]: device pixel ratio',
   'document[`ts]: document snapshot timestamp (ms)'
 ];
@@ -199,7 +193,7 @@ const SETUP_DRAW_GUIDE = [
   '`setup[document]` runs once per Run and must return a table state.',
   '`draw[state;input;document]` runs every frame and must return the next state table.',
   '`input` is a one-row table for mouse/keyboard fields.',
-  '`document` is a separate one-row global table (cw/ch, vw/vh, dw/dh, sx/sy, dpr), available in setup and draw.',
+  '`document` is a separate one-row global table with packed vectors (`c`, `v`, `d`, `s`) plus split aliases, available in setup and draw.',
   'Each helper tab must contain only function definitions (`name:{...};`).',
   'Helper functions are loaded before the main sketch and can be called from setup/draw.',
   'Shapes and text are table-only. One row = one draw call; many rows = vectorized draw.'
@@ -217,39 +211,33 @@ const EXAMPLES = [
           name: 'Sketch.q',
           kind: 'main',
           code: `setup:{[document]
-  vw:first document[\`vw];
-  w:420f | 0.82 * vw;
+  viewport:first document[\`v];
+  w:420f | 0.82 * (viewport 0);
   h:260f | 0.58 * w;
   createCanvas[w;h];
   frameRate[30];
   textSize[15];
   n:90;
-  p:([] x:14f + n?(w-28f);
-    y:16f + n?(h-32f);
-    vx:(n?2f)-1f;
-    vy:(n?2f)-1f;
+  p:([] p:flip (14f + n?(w-28f); 16f + n?(h-32f));
+    v:flip ((n?2f)-1f; (n?2f)-1f);
     d:3.5 + n?6f;
-    fillR:120 + n?120i;
-    fillG:140 + n?110i;
-    fillB:190 + n?65i);
+    fill:flip (120 + n?120i; 140 + n?110i; 190 + n?65i));
   ([] tick:enlist 0i;
     particles:enlist p)
 };
 
 draw:{[state;input;document]
   tick:first state[\`tick];
-  cw:first document[\`cw];
-  ch:first document[\`ch];
-  ps:stepBouncers[first state[\`particles]; cw; ch];
+  canvas:first document[\`c];
+  ps:stepBouncers[first state[\`particles]; canvas];
+  cw:canvas 0;
+  ch:canvas 1;
 
   background[12;16;24];
   circle[ps];
   text[([] txt:("Bouncing dots"; "canvas " , string floor cw , "x" , string floor ch);
-    x:24 24f;
-    y:30 52f;
-    fillR:252 210i;
-    fillG:252 220i;
-    fillB:252 230i)];
+    p:flip (24 24f; 30 52f);
+    fill:flip (252 210i; 252 220i; 252 230i))];
 
   update tick:tick+1i, particles:enlist ps from state
 };`
@@ -258,11 +246,12 @@ draw:{[state;input;document]
           id: 'helpers',
           name: 'bouncers.q',
           kind: 'helper',
-          code: `stepBouncers:{[t;w;h]
-  t1:update x:x+vx, y:y+vy from t;
-  t2:update vx:0f-vx from t1 where (x<0f) or x>w;
-  t3:update vy:0f-vy from t2 where (y<0f) or y>h;
-  update x:0f|w&x, y:0f|h&y from t3
+          code: `stepBouncers:{[t;size]
+  t1:update p:p+v from t;
+  update
+    p:{[size;x] ((0f;0f) | (size & x))}[size] each p,
+    v:{[size;p;v] v * (1f - 2f * ((p < (0f;0f)) or p > size))}[size]'[p;v]
+  from t1
 };`
         }
       ]
@@ -287,40 +276,35 @@ draw:{[state;input;document]
           name: 'Sketch.q',
           kind: 'main',
           code: `setup:{[document]
-  vw:first document[\`vw];
-  w:460f | 0.84 * vw;
+  viewport:first document[\`v];
+  w:460f | 0.84 * (viewport 0);
   h:280f | 0.56 * w;
   createCanvas[w;h];
   frameRate[30];
   textSize[16];
-  empty:([] x:0#0f;
-    y:0#0f;
-    vx:0#0f;
-    vy:0#0f;
+  empty:([] p:0#enlist 0 0f;
+    v:0#enlist 0 0f;
     life:0#0f;
     d:0#0f;
-    fillR:0#0i;
-    fillG:0#0i;
-    fillB:0#0i);
+    fill:0#enlist 0 0 0i);
   ([] particles:enlist empty;
     tick:enlist 0i)
 };
 
 draw:{[state;input;document]
-  cw:first document[\`cw];
-  ch:first document[\`ch];
+  mouse:first input[\`m];
+  canvas:first document[\`c];
+  cw:canvas 0;
+  ch:canvas 1;
   dpr:first document[\`dpr];
   ps:stepParticles select from (first state[\`particles]) where life > 0;
-  if[first input[\`mousePressed]; ps:ps,spawnParticles[first input[\`mx]; first input[\`my]; 10]];
+  if[first input[\`mousePressed]; ps:ps,spawnParticles[mouse;10]];
 
   background[12;16;22];
   circle[ps];
   text[([] txt:("Hold mouse and drag to emit particles"; "particles " , string count ps; "canvas " , string floor cw , "x" , string floor ch , " dpr=" , string dpr);
-    x:20 20 20f;
-    y:28 52 76f;
-    fillR:245 245 205i;
-    fillG:245 245 225i;
-    fillB:245 245 245i)];
+    p:flip (20 20 20f; 28 52 76f);
+    fill:flip (245 245 205i; 245 245 225i; 245 245 245i))];
 
   update particles:enlist ps, tick:first state[\`tick]+1i from state
 };`
@@ -329,23 +313,18 @@ draw:{[state;input;document]
           id: 'helpers',
           name: 'particles.q',
           kind: 'helper',
-          code: `spawnParticles:{[mx;my;n]
-  dx:(n?1f)-0.5;
-  dy:n?1f;
+          code: `spawnParticles:{[m;n]
+  da:((n?1f)-0.5;n?1f);
   ([]
-    x:mx + 10*dx;
-    y:my + 4*dy;
-    vx:2.2*dx;
-    vy:-2.8*dy;
+    p:flip m+(10;4)*da;
+    v:flip (2.2;2.8)*da;
     life:0.6 + 0.4*(n?1f);
     d:2 + 8*(n?1f);
-    fillR:220 + n?35i;
-    fillG:130 + n?90i;
-    fillB:50 + n?60i)
+    fill:flip (220 + n?35i; 130 + n?90i; 50 + n?60i))
 };
 
 stepParticles:{[t]
-  update x:x+vx, y:y+vy, vy:vy+0.08, life:life-0.02, d:1 + 10*life from t where life>0
+  update p:p+v, v:{x+0 0.08} each v, life:life-0.02, d:1 + 10*life from t where life>0
 };`
         }
       ]
@@ -605,6 +584,10 @@ function log(message) {
   consoleEl.scrollTop = consoleEl.scrollHeight;
 }
 
+function clearConsole() {
+  consoleEl.textContent = '';
+}
+
 function setStatus(text) {
   statusEl.textContent = text;
 }
@@ -851,7 +834,8 @@ function connect() {
       sketchRunning = false;
       awaitingFrame = false;
       runGate.resolveRun();
-      log(`Error: ${msg.message}`);
+      const detail = String(msg.message || '').trim();
+      log(detail ? `Error:\n${detail}` : 'Error');
     }
 
     if (msg.type === 'stopped') {
@@ -901,11 +885,17 @@ function isCanvasEvent(event) {
 
 function getInputSnapshot() {
   inputState.ts = Date.now();
+  const mx = Number(inputState.mx) || 0;
+  const my = Number(inputState.my) || 0;
+  const pmx = Number(inputState.pmx) || 0;
+  const pmy = Number(inputState.pmy) || 0;
   return {
-    mx: Number(inputState.mx) || 0,
-    my: Number(inputState.my) || 0,
-    pmx: Number(inputState.pmx) || 0,
-    pmy: Number(inputState.pmy) || 0,
+    m: [mx, my],
+    pm: [pmx, pmy],
+    mx,
+    my,
+    pmx,
+    pmy,
     mousePressed: Boolean(inputState.mousePressed),
     mouseButton: inputState.mouseButton || 'none',
     keysDown: Array.from(keysDown),
@@ -934,15 +924,28 @@ function getDocumentSnapshot() {
     body ? body.clientHeight : 0
   );
 
+  const cw = Number(p.width) || 0;
+  const ch = Number(p.height) || 0;
+  const vw = Number(window.innerWidth) || 0;
+  const vh = Number(window.innerHeight) || 0;
+  const dw = Number(docWidth) || 0;
+  const dh = Number(docHeight) || 0;
+  const sx = Number(window.scrollX) || 0;
+  const sy = Number(window.scrollY) || 0;
+
   return {
-    cw: Number(p.width) || 0,
-    ch: Number(p.height) || 0,
-    vw: Number(window.innerWidth) || 0,
-    vh: Number(window.innerHeight) || 0,
-    dw: Number(docWidth) || 0,
-    dh: Number(docHeight) || 0,
-    sx: Number(window.scrollX) || 0,
-    sy: Number(window.scrollY) || 0,
+    c: [cw, ch],
+    v: [vw, vh],
+    d: [dw, dh],
+    s: [sx, sy],
+    cw,
+    ch,
+    vw,
+    vh,
+    dw,
+    dh,
+    sx,
+    sy,
     dpr: Number(window.devicePixelRatio) || 1,
     ts: Date.now()
   };
@@ -955,6 +958,7 @@ function clearInputFrameEdges() {
 }
 
 runBtn.addEventListener('click', () => {
+  clearConsole();
   saveWorkspace();
   sketchRunning = false;
   awaitingFrame = false;
@@ -974,7 +978,7 @@ stopBtn.addEventListener('click', () => {
 });
 
 resendBtn.addEventListener('click', () => {
-  consoleEl.textContent = '';
+  clearConsole();
 });
 
 menuSaveBtn.addEventListener('click', () => {

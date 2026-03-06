@@ -22,7 +22,7 @@ function waitForServer(child) {
   });
 }
 
-test('draw receives input snapshot table values', async () => {
+test('draw receives packed input snapshot table values', async () => {
   const port = 7180 + Math.floor(Math.random() * 40);
   const server = spawn(process.execPath, ['server.js'], {
     cwd: process.cwd(),
@@ -36,9 +36,10 @@ test('draw receives input snapshot table values', async () => {
     const sketch = [
       'setup:{[document]createCanvas[200;120]};',
       'draw:{[state;input;document]',
-      '  mx:first input[`mx];',
-      '  text[([] txt:enlist string mx; x:enlist 10f; y:enlist 18f)];',
-      '  circle[([] x:enlist mx; y:enlist 60f; d:enlist 12f)];',
+      '  m:first input[`m];',
+      '  mx:m 0;',
+      '  text[([] txt:enlist string mx; p:enlist 10 18f)];',
+      '  circle[([] p:enlist (mx;60f); d:enlist 12f)];',
       '  state',
       '};'
     ].join('');

@@ -39,6 +39,7 @@ test('valid run after an invalid run should recover cleanly', async () => {
     const result = await new Promise((resolve, reject) => {
       const ws = new WebSocket(`ws://localhost:${port}/ws`);
       const events = [];
+      let runtimeErrorMessage = '';
       let settled = false;
 
       const done = (fn, value) => {
@@ -64,10 +65,14 @@ test('valid run after an invalid run should recover cleanly', async () => {
         const msg = JSON.parse(raw.toString('utf8'));
         events.push(msg.type);
 
+        if (msg.type === 'runtimeError') {
+          runtimeErrorMessage = String(msg.message || '');
+        }
+
         if (events.filter((t) => t === 'runResult').length >= 2) {
           clearTimeout(timeout);
           ws.close();
-          done(resolve, events);
+          done(resolve, { events, runtimeErrorMessage });
         }
       });
 
@@ -84,8 +89,11 @@ test('valid run after an invalid run should recover cleanly', async () => {
       });
     });
 
-    assert.ok(result.includes('runtimeError'));
-    assert.equal(result.filter((t) => t === 'runResult').length, 2);
+    assert.ok(result.events.includes('runtimeError'));
+    assert.equal(result.events.filter((t) => t === 'runResult').length, 2);
+    assert.match(result.runtimeErrorMessage, /failed to load/i);
+    assert.match(result.runtimeErrorMessage, /this is invalid q/i);
+    assert.match(result.runtimeErrorMessage, /q reported:/i);
   } finally {
     server.kill('SIGTERM');
     await new Promise((r) => server.once('exit', r));

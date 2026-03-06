@@ -22,8 +22,8 @@ function waitForServer(child) {
   });
 }
 
-test('circle[table] emits one command per row from packed position columns', async () => {
-  const port = 7220 + Math.floor(Math.random() * 40);
+test('generic q runtime errors include phase and source context', async () => {
+  const port = 7480 + Math.floor(Math.random() * 40);
   const server = spawn(process.execPath, ['server.js'], {
     cwd: process.cwd(),
     env: { ...process.env, PORT: String(port) },
@@ -34,20 +34,23 @@ test('circle[table] emits one command per row from packed position columns', asy
     await waitForServer(server);
 
     const sketch = [
-      'setup:{[document]createCanvas[200;120]};',
+      'spawnParticles:{[origin;n]',
+      '  :1 2 + 1 2 3;',
+      '};',
+      'setup:{[document] createCanvas[120;80]; ([] ok:enlist 1i)};',
       'draw:{[state;input;document]',
-      '  t:([] p:flip (10 30 50f; 40 40 40f); d:8 10 12f);',
-      '  circle[t];',
+      '  ps:spawnParticles[(10f;20f);10];',
+      '  background[0];',
       '  state',
       '};'
-    ].join('');
+    ].join('\n');
 
-    const commands = await new Promise((resolve, reject) => {
+    const runtimeError = await new Promise((resolve, reject) => {
       const ws = new WebSocket(`ws://localhost:${port}/ws`);
       const timeout = setTimeout(() => {
         ws.close();
-        reject(new Error('Timed out waiting for step result'));
-      }, 5000);
+        reject(new Error('Timed out waiting for runtimeError'));
+      }, 7000);
 
       ws.on('open', () => {
         ws.send(JSON.stringify({ type: 'run', code: sketch }));
@@ -55,27 +58,30 @@ test('circle[table] emits one command per row from packed position columns', asy
 
       ws.on('message', (raw) => {
         const msg = JSON.parse(raw.toString('utf8'));
+        if (msg.type === 'runResult') {
+          ws.send(JSON.stringify({ type: 'step', frame: 1, input: {}, document: {} }));
+          return;
+        }
+
         if (msg.type === 'runtimeError') {
           clearTimeout(timeout);
           ws.close();
-          reject(new Error(msg.message));
-          return;
+          resolve(String(msg.message || ''));
         }
-        if (msg.type === 'runResult') {
-          ws.send(JSON.stringify({ type: 'step', frame: 0, input: { mx: 0 } }));
-          return;
-        }
-        if (msg.type === 'stepResult') {
-          clearTimeout(timeout);
-          ws.close();
-          resolve(msg.commands);
-        }
+      });
+
+      ws.on('error', (err) => {
+        clearTimeout(timeout);
+        reject(err);
       });
     });
 
-    const circles = commands.filter((c) => Array.isArray(c) && c[0] === 'circle');
-    assert.equal(circles.length, 3);
-    assert.equal(Math.round(circles[2][1]), 50);
+    assert.match(runtimeError, /Runtime error in draw:/i);
+    assert.match(runtimeError, /length/i);
+    assert.match(runtimeError, /Active draw definition:/i);
+    assert.match(runtimeError, /ps:spawnParticles\[\(10f;20f\);10\];/i);
+    assert.match(runtimeError, /Referenced helper spawnParticles definition:/i);
+    assert.match(runtimeError, /:1 2 \+ 1 2 3;/i);
   } finally {
     server.kill('SIGTERM');
     await new Promise((r) => server.once('exit', r));

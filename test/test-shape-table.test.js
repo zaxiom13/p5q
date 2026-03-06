@@ -22,7 +22,7 @@ function waitForServer(child) {
   });
 }
 
-test('table input works for rect/triangle/line/ellipse/point', async () => {
+test('table input works for packed rect/triangle/line/ellipse/point columns', async () => {
   const port = 7360 + Math.floor(Math.random() * 40);
   const server = spawn(process.execPath, ['server.js'], {
     cwd: process.cwd(),
@@ -36,11 +36,11 @@ test('table input works for rect/triangle/line/ellipse/point', async () => {
     const sketch = [
       'setup:{[document]createCanvas[240;160]; ([] ok:enlist 1b)};',
       'draw:{[state;input;document]',
-      '  rect[([] x:10 60f; y:15 15f; w:20 25f; h:30 35f)];',
-      '  triangle[([] x1:10 30f; y1:80 80f; x2:20 40f; y2:90 90f; x3:15 35f; y3:100 100f)];',
-      '  line[([] x1:5 7f; y1:5 7f; x2:40 42f; y2:5 7f)];',
-      '  ellipse[([] x:120 150f; y:40 50f; w:20 30f; h:10 12f)];',
-      '  point[([] x:200 205f; y:20 25f)];',
+      '  rect[([] p:(10 15f;60 15f); size:(20 30f;25 35f))];',
+      '  triangle[([] p1:(10 80f;30 80f); p2:(20 90f;40 90f); p3:(15 100f;35 100f))];',
+      '  line[([] p1:(5 5f;7 7f); p2:(40 5f;42 7f))];',
+      '  ellipse[([] p:(120 40f;150 50f); size:(20 10f;30 12f))];',
+      '  point[([] p:(200 20f;205 25f))];',
       '  state',
       '};'
     ].join('');
