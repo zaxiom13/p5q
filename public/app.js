@@ -3,6 +3,7 @@ const consoleEl = document.getElementById('console');
 const editorEl = document.getElementById('editor');
 const runBtn = document.getElementById('runBtn');
 const stopBtn = document.getElementById('stopBtn');
+const newSketchBtn = document.getElementById('newSketchBtn');
 const resendBtn = document.getElementById('resendBtn');
 const menuBtn = document.getElementById('menuBtn');
 const menuPanel = document.getElementById('menuPanel');
@@ -70,6 +71,17 @@ draw:{[state;input;document]
     p3:enlist 204 56f)];
 
   update tick:tick+1i from state
+};
+`;
+
+const EMPTY_SKETCH = `setup:{[document]
+  createCanvas[360;220];
+  ([] tick:enlist 0i)
+};
+
+draw:{[state;input;document]
+  background[20;20;24];
+  state
 };
 `;
 
@@ -533,6 +545,28 @@ function loadExample(exampleId) {
   log(`Loaded example: ${found.label}`);
 }
 
+function createEmptyWorkspace() {
+  return sanitizeWorkspace({
+    activeTabId: 'sketch',
+    tabs: [{ id: 'sketch', name: 'Sketch.q', kind: 'main', code: EMPTY_SKETCH }]
+  });
+}
+
+function loadNewSketch() {
+  runGate.cancelRun();
+  sketchRunning = false;
+  awaitingFrame = false;
+  setupApplied = false;
+  activeCommands = [];
+  workspace = createEmptyWorkspace();
+  setEditorCode(activeTab().code);
+  renderTabs();
+  saveWorkspace();
+  send({ type: 'stop' });
+  clearConsole();
+  log('Loaded new empty sketch');
+}
+
 function fillExamplesDropdown() {
   examplePanel.innerHTML = '';
   for (const ex of EXAMPLES) {
@@ -975,6 +1009,10 @@ stopBtn.addEventListener('click', () => {
   sketchRunning = false;
   awaitingFrame = false;
   send({ type: 'stop' });
+});
+
+newSketchBtn.addEventListener('click', () => {
+  loadNewSketch();
 });
 
 resendBtn.addEventListener('click', () => {
