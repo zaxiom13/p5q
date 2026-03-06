@@ -10,13 +10,15 @@
     "url": "git@github.com:zaxiom13/p5q.git"
   },
   "scripts": {
-    "start": "electron .",
+    "start": "node scripts/start-desktop.js",
     "start:web": "node server.js",
     "test": "node --test --test-concurrency=1 --test-timeout=30000 --test-force-exit",
     "demo:record": "playwright test demo/record-demo.spec.js",
     "demo:record:headed": "playwright test demo/record-demo.spec.js --headed",
     "pack": "electron-builder --dir",
-    "dist": "electron-builder"
+    "dist": "electron-builder",
+    "start:electron": "electron .",
+    "start:electrobun": "bunx electrobun ."
   },
   "dependencies": {
     "electron-updater": "^6.6.2",
@@ -100,13 +102,15 @@
         {
           "target": "nsis",
           "arch": [
-            "x64"
+            "x64",
+            "arm64"
           ]
         },
         {
           "target": "portable",
           "arch": [
-            "x64"
+            "x64",
+            "arm64"
           ]
         }
       ],
