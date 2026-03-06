@@ -9,6 +9,7 @@ const menuBtn = document.getElementById('menuBtn');
 const menuPanel = document.getElementById('menuPanel');
 const menuSaveBtn = document.getElementById('menuSaveBtn');
 const menuResetBtn = document.getElementById('menuResetBtn');
+const menuWalkthroughBtn = document.getElementById('menuWalkthroughBtn');
 const tabListEl = document.getElementById('tabList');
 const addTabBtn = document.getElementById('addTabBtn');
 const exampleBtn = document.getElementById('exampleBtn');
@@ -217,6 +218,45 @@ const INPUT_DOCUMENT_HELP = [
   'document[`dpr]: device pixel ratio',
   'document[`ts]: document snapshot timestamp (ms)'
 ];
+
+
+const WALKTHROUGH_STEPS = [
+  {
+    selector: '#runBtn',
+    title: 'Run your sketch',
+    body: 'Start here: Run sends setup once, then streams draw frames so the Preview comes alive.'
+  },
+  {
+    selector: '#editor',
+    title: 'Edit q code',
+    body: 'Write setup/draw in the main tab, then add helper functions in extra tabs with + Tab.'
+  },
+  {
+    selector: '#exampleBtn',
+    title: 'Load examples',
+    body: 'Open Examples to quickly swap in working sketches and learn the table patterns.'
+  },
+  {
+    selector: '#helpTabBtn',
+    title: 'Use Help when stuck',
+    body: 'Help summarizes setup/draw, primitive columns, and input/document fields.'
+  },
+  {
+    selector: '#setupTabBtn',
+    title: 'Connect runtime in Setup',
+    body: 'Setup links your local q runtime once so future runs are one-click.'
+  },
+  {
+    selector: '#menuBtn',
+    title: 'Save + walkthrough',
+    body: 'Use the menu for Save Local, Reset Example, and restarting this walkthrough any time.'
+  }
+];
+
+let walkthroughState = {
+  active: false,
+  index: 0
+};
 
 const SETUP_DRAW_GUIDE = [
   '`setup[document]` runs once per Run and must return a table state.',
@@ -1224,6 +1264,184 @@ function clearInputFrameEdges() {
   inputState.wheelDelta = 0;
 }
 
+
+function ensureWalkthroughElements() {
+  let overlay = document.getElementById('walkthroughOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'walkthroughOverlay';
+    overlay.className = 'walkthroughOverlay';
+    overlay.hidden = true;
+  }
+
+  let card = document.getElementById('walkthroughCard');
+  if (!card) {
+    card = document.createElement('section');
+    card.id = 'walkthroughCard';
+    card.className = 'walkthroughCard';
+    card.hidden = true;
+    card.innerHTML = `
+      <p id="walkthroughStep" class="walkthroughStep"></p>
+      <h3 id="walkthroughTitle" class="walkthroughTitle"></h3>
+      <p id="walkthroughBody" class="walkthroughBody"></p>
+      <div class="walkthroughActions">
+        <button id="walkthroughSkipBtn" class="ghost" type="button">Skip</button>
+        <button id="walkthroughNextBtn" type="button">Next</button>
+      </div>
+    `;
+  }
+
+  if (!overlay.parentElement) {
+    document.body.appendChild(overlay);
+  }
+  if (!card.parentElement) {
+    document.body.appendChild(card);
+  }
+
+  return { overlay, card };
+}
+
+function getWalkthroughStepElements() {
+  return {
+    stepEl: document.getElementById('walkthroughStep'),
+    titleEl: document.getElementById('walkthroughTitle'),
+    bodyEl: document.getElementById('walkthroughBody'),
+    nextBtn: document.getElementById('walkthroughNextBtn'),
+    skipBtn: document.getElementById('walkthroughSkipBtn')
+  };
+}
+
+function clearWalkthroughHighlights() {
+  document.querySelectorAll('.walkthroughFocus').forEach((el) => {
+    el.classList.remove('walkthroughFocus');
+  });
+}
+
+function syncWalkthroughCard(target) {
+  const card = document.getElementById('walkthroughCard');
+  if (!card || !target) {
+    return;
+  }
+  const rect = target.getBoundingClientRect();
+  const cardRect = card.getBoundingClientRect();
+  const margin = 14;
+  const desiredLeft = rect.left + window.scrollX;
+  const maxLeft = Math.max(margin, window.scrollX + window.innerWidth - cardRect.width - margin);
+  const left = Math.min(Math.max(window.scrollX + margin, desiredLeft), maxLeft);
+
+  const belowTop = rect.bottom + window.scrollY + margin;
+  const aboveTop = rect.top + window.scrollY - cardRect.height - margin;
+  const placeAbove = belowTop + cardRect.height > window.scrollY + window.innerHeight - margin && aboveTop >= window.scrollY + margin;
+  const top = placeAbove ? aboveTop : belowTop;
+
+  card.style.left = `${Math.round(left)}px`;
+  card.style.top = `${Math.round(top)}px`;
+}
+
+function stopWalkthrough(message) {
+  walkthroughState.active = false;
+  walkthroughState.index = 0;
+  clearWalkthroughHighlights();
+  const overlay = document.getElementById('walkthroughOverlay');
+  const card = document.getElementById('walkthroughCard');
+  if (overlay) {
+    overlay.hidden = true;
+  }
+  if (card) {
+    card.hidden = true;
+  }
+  if (message) {
+    log(message);
+  }
+}
+
+function renderWalkthroughStep() {
+  if (!walkthroughState.active) {
+    return;
+  }
+  const step = WALKTHROUGH_STEPS[walkthroughState.index];
+  if (!step) {
+    stopWalkthrough('Walkthrough complete. Happy sketching.');
+    return;
+  }
+
+  const target = document.querySelector(step.selector);
+  if (!target) {
+    stopWalkthrough('Walkthrough ended early because a target element was not found.');
+    return;
+  }
+
+  closeMenu();
+  closeExamplesMenu();
+
+  if (step.selector === '#helpTabBtn') {
+    showHelpTab();
+  }
+  if (step.selector === '#setupTabBtn') {
+    showSetupTab();
+  }
+  if (step.selector === '#runBtn' || step.selector === '#editor' || step.selector === '#exampleBtn' || step.selector === '#menuBtn') {
+    showPreviewTab();
+  }
+
+  clearWalkthroughHighlights();
+  target.classList.add('walkthroughFocus');
+  target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
+
+  const { stepEl, titleEl, bodyEl, nextBtn } = getWalkthroughStepElements();
+  if (!stepEl || !titleEl || !bodyEl || !nextBtn) {
+    stopWalkthrough('Walkthrough UI failed to initialize.');
+    return;
+  }
+
+  stepEl.textContent = `Step ${walkthroughState.index + 1} of ${WALKTHROUGH_STEPS.length}`;
+  titleEl.textContent = step.title;
+  bodyEl.textContent = step.body;
+  nextBtn.textContent = walkthroughState.index === WALKTHROUGH_STEPS.length - 1 ? 'Finish' : 'Next';
+
+  const overlay = document.getElementById('walkthroughOverlay');
+  const card = document.getElementById('walkthroughCard');
+  if (overlay) {
+    overlay.hidden = false;
+  }
+  if (card) {
+    card.hidden = false;
+  }
+  requestAnimationFrame(() => {
+    syncWalkthroughCard(target);
+  });
+}
+
+function nextWalkthroughStep() {
+  if (!walkthroughState.active) {
+    return;
+  }
+  walkthroughState.index += 1;
+  renderWalkthroughStep();
+}
+
+function startWalkthrough() {
+  ensureWalkthroughElements();
+  const { nextBtn, skipBtn } = getWalkthroughStepElements();
+  if (nextBtn && !nextBtn.dataset.bound) {
+    nextBtn.addEventListener('click', () => {
+      nextWalkthroughStep();
+    });
+    nextBtn.dataset.bound = '1';
+  }
+  if (skipBtn && !skipBtn.dataset.bound) {
+    skipBtn.addEventListener('click', () => {
+      stopWalkthrough('Walkthrough skipped. Start it again from the menu any time.');
+    });
+    skipBtn.dataset.bound = '1';
+  }
+
+  walkthroughState.active = true;
+  walkthroughState.index = 0;
+  renderWalkthroughStep();
+  log('Walkthrough started.');
+}
+
 runBtn.addEventListener('click', () => {
   clearConsole();
   saveWorkspace();
@@ -1263,6 +1481,11 @@ menuSaveBtn.addEventListener('click', () => {
 menuResetBtn.addEventListener('click', () => {
   loadExample('bouncers');
   closeMenu();
+});
+
+menuWalkthroughBtn?.addEventListener('click', () => {
+  closeMenu();
+  startWalkthrough();
 });
 
 addTabBtn.addEventListener('click', () => {
@@ -1372,6 +1595,9 @@ document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
     closeMenu();
     closeExamplesMenu();
+    if (walkthroughState.active) {
+      stopWalkthrough('Walkthrough closed.');
+    }
   }
   inputState.key = event.key || '';
   inputState.keyCode = event.keyCode || 0;
@@ -1570,7 +1796,19 @@ const p = new p5((sketch) => {
 }, 'canvasHost');
 
 window.addEventListener('beforeunload', () => {
+  stopWalkthrough();
   saveWorkspace();
+});
+
+window.addEventListener('resize', () => {
+  if (!walkthroughState.active) {
+    return;
+  }
+  const step = WALKTHROUGH_STEPS[walkthroughState.index];
+  const target = step ? document.querySelector(step.selector) : null;
+  if (target) {
+    syncWalkthroughCard(target);
+  }
 });
 
 fillExamplesDropdown();
@@ -1586,3 +1824,4 @@ desktopApi?.onUpdateState?.((state) => {
 });
 log('Ready. Press Run.');
 setPreviewLiveState(false);
+startWalkthrough();
