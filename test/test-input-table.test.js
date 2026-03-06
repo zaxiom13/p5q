@@ -36,9 +36,10 @@ test('draw receives packed input snapshot table values', async () => {
     const sketch = [
       'setup:{[document]createCanvas[200;120]};',
       'draw:{[state;input;document]',
+      '  tick:first input[`tick];',
       '  m:first input[`m];',
       '  mx:m 0;',
-      '  text[([] txt:enlist string mx; p:enlist 10 18f)];',
+      '  text[([] txt:enlist string tick , ":" , string mx; p:enlist 10 18f)];',
       '  circle[([] p:enlist (mx;60f); d:enlist 12f)];',
       '  state',
       '};'
@@ -99,7 +100,9 @@ test('draw receives packed input snapshot table values', async () => {
     });
 
     const circleCmd = result.find((c) => Array.isArray(c) && c[0] === 'circle');
+    const textCmd = result.find((c) => Array.isArray(c) && c[0] === 'text');
     assert.ok(circleCmd, 'expected circle command from draw');
+    assert.equal(Array.isArray(textCmd[1]) ? textCmd[1].join('') : textCmd[1], '4:77');
     assert.equal(Math.round(circleCmd[1]), 77);
   } finally {
     server.kill('SIGTERM');

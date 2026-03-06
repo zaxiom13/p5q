@@ -26,6 +26,7 @@ Main tab must define:
 
 `input` is a one-row table snapshot each frame with mouse/keyboard fields:
 
+- Frame: `tick`
 - Packed: `m`, `pm`
 - Split aliases: `mx`, `my`, `pmx`, `pmy`
 - Other fields: `mousePressed`, `mouseButton`, `keysDown`, `key`, `keyCode`, `keyPressed`, `keyReleased`, `wheelDelta`
@@ -56,7 +57,7 @@ Helper tabs:
 
 - Draw primitives are table-only (`line`, `rect`, `circle`, `ellipse`, `triangle`, `point`, `text`).
 - Packed vector columns are the preferred teaching style: use `p` for `[x y]`, `v` for `[vx vy]`, `size` for `[w h]`, and `fill`/`stroke` for `[r g b]` or `[r g b a]`.
-- Animation is manual (state + modular indexing), no built-in animate API.
+- Use `input[\`tick]` for frame-based animation instead of storing your own tick counter in state.
 - Runtime state must always be a q table.
 
 ## Run

@@ -34,7 +34,7 @@ test('q show output is streamed back over websocket', async () => {
     await waitForServer(server);
 
     const sketch = [
-      'setup:{[document] createCanvas[200;120]; ([] tick:enlist 0i)};',
+      'setup:{[document] createCanvas[200;120]; ([] ok:enlist 1b)};',
       'draw:{[state;input;document]',
       '  show 5;',
       '  state',

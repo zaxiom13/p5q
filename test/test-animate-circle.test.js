@@ -22,7 +22,7 @@ function waitForServer(child) {
   });
 }
 
-test('manual table indexing with tick mod count drives animation', async () => {
+test('input tick mod count drives animation', async () => {
   const port = 7340 + Math.floor(Math.random() * 40);
   const server = spawn(process.execPath, ['server.js'], {
     cwd: process.cwd(),
@@ -37,14 +37,14 @@ test('manual table indexing with tick mod count drives animation', async () => {
       'setup:{[document]',
       '  createCanvas[200;120];',
       '  t:([] x:10 30 50f; y:40 40 40f; d:9 9 9f);',
-      '  ([] tick:enlist 0i; circles:enlist t)',
+      '  ([] circles:enlist t)',
       '};',
       'draw:{[state;input;document]',
       '  background[0];',
       '  circles:first state[`circles];',
-      '  i:first state[`tick] mod count circles;',
+      '  i:first input[`tick] mod count circles;',
       '  circle[circles enlist i];',
-      '  update tick:tick+1i from state',
+      '  state',
       '};'
     ].join('');
 

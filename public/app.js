@@ -37,11 +37,11 @@ setup:{[document]
   createCanvas[w;h];
   frameRate[24];
   textSize[16];
-  ([] tick:enlist 0i)
+  ([] demo:enlist 0i)
 };
 
 draw:{[state;input;document]
-  tick:first state[\`tick];
+  tick:first input[\`tick];
   mouse:first input[\`m];
   canvas:first document[\`c];
   viewport:first document[\`v];
@@ -70,13 +70,13 @@ draw:{[state;input;document]
     p2:enlist 204 40f;
     p3:enlist 204 56f)];
 
-  update tick:tick+1i from state
+  state
 };
 `;
 
 const EMPTY_SKETCH = `setup:{[document]
   createCanvas[360;220];
-  ([] tick:enlist 0i)
+  ([] ready:enlist 1b)
 };
 
 draw:{[state;input;document]
@@ -181,6 +181,7 @@ const TABLE_SNIPPETS = [
 ];
 
 const INPUT_DOCUMENT_HELP = [
+  'input[`tick]: current frame/tick number for this draw step',
   'input[`m]: current mouse [x y] in canvas coordinates',
   'input[`pm]: previous frame mouse [x y]',
   'input[`mx], input[`my], input[`pmx], input[`pmy]: split aliases for the packed mouse vectors',
@@ -204,7 +205,7 @@ const INPUT_DOCUMENT_HELP = [
 const SETUP_DRAW_GUIDE = [
   '`setup[document]` runs once per Run and must return a table state.',
   '`draw[state;input;document]` runs every frame and must return the next state table.',
-  '`input` is a one-row table for mouse/keyboard fields.',
+  '`input` is a one-row table for frame/mouse/keyboard fields, including `tick`.',
   '`document` is a separate one-row global table with packed vectors (`c`, `v`, `d`, `s`) plus split aliases, available in setup and draw.',
   'Each helper tab must contain only function definitions (`name:{...};`).',
   'Helper functions are loaded before the main sketch and can be called from setup/draw.',
@@ -234,12 +235,10 @@ const EXAMPLES = [
     v:flip ((n?2f)-1f; (n?2f)-1f);
     d:3.5 + n?6f;
     fill:flip (120 + n?120i; 140 + n?110i; 190 + n?65i));
-  ([] tick:enlist 0i;
-    particles:enlist p)
+  ([] particles:enlist p)
 };
 
 draw:{[state;input;document]
-  tick:first state[\`tick];
   canvas:first document[\`c];
   ps:stepBouncers[first state[\`particles]; canvas];
   cw:canvas 0;
@@ -251,7 +250,7 @@ draw:{[state;input;document]
     p:flip (24 24f; 30 52f);
     fill:flip (252 210i; 252 220i; 252 230i))];
 
-  update tick:tick+1i, particles:enlist ps from state
+  update particles:enlist ps from state
 };`
         },
         {
@@ -299,11 +298,11 @@ draw:{[state;input;document]
     life:0#0f;
     d:0#0f;
     fill:0#enlist 0 0 0i);
-  ([] particles:enlist empty;
-    tick:enlist 0i)
+  ([] particles:enlist empty)
 };
 
 draw:{[state;input;document]
+  tick:first input[\`tick];
   mouse:first input[\`m];
   canvas:first document[\`c];
   cw:canvas 0;
@@ -318,7 +317,7 @@ draw:{[state;input;document]
     p:flip (20 20 20f; 28 52 76f);
     fill:flip (245 245 205i; 245 245 225i; 245 245 245i))];
 
-  update particles:enlist ps, tick:first state[\`tick]+1i from state
+  update particles:enlist ps from state
 };`
         },
         {

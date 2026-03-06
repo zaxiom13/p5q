@@ -209,7 +209,7 @@ function qFloatPair(value, fallbackA = 0, fallbackB = 0) {
   return `(${qFloat(pair[0], fallbackA)};${qFloat(pair[1], fallbackB)})`;
 }
 
-function qInputTableLiteral(raw) {
+function qInputTableLiteral(raw, frame = 0) {
   const input = raw && typeof raw === 'object' ? raw : {};
   const keys = Array.isArray(input.keysDown) ? input.keysDown : [];
   const keysExpr = keys.length ? `(${keys.map((k) => qSymbol(k)).join(';')})` : '()';
@@ -219,8 +219,10 @@ function qInputTableLiteral(raw) {
   const my = input.my ?? m[1];
   const pmx = input.pmx ?? pm[0];
   const pmy = input.pmy ?? pm[1];
-  const columns = '`m`pm`mx`my`pmx`pmy`mousePressed`mouseButton`keysDown`key`keyCode`keyPressed`keyReleased`wheelDelta`ts';
+  const tick = input.tick ?? frame;
+  const columns = '`tick`m`pm`mx`my`pmx`pmy`mousePressed`mouseButton`keysDown`key`keyCode`keyPressed`keyReleased`wheelDelta`ts';
   const values = [
+    `enlist ${qInt(tick)}`,
     `enlist ${qFloatPair(m)}`,
     `enlist ${qFloatPair(pm)}`,
     `enlist ${qFloat(mx)}`,
@@ -1042,7 +1044,7 @@ wss.on('connection', async (ws) => {
 
       if (msg.type === 'step' && running) {
         const frame = Number(msg.frame || 0);
-        const inputTableExpr = qInputTableLiteral(msg.input);
+        const inputTableExpr = qInputTableLiteral(msg.input, frame);
         const docTableExpr = qDocumentTableLiteral(msg.document);
         phase = 'draw';
         const stepResult = await worker.runDraw(sessionId, inputTableExpr, docTableExpr);

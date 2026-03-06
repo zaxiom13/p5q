@@ -34,7 +34,7 @@ test('text[table] supports packed per-row position and fill columns', async () =
     await waitForServer(server);
 
     const sketch = [
-      'setup:{[document]createCanvas[200;120]; ([] tick:enlist 0i)};',
+      'setup:{[document]createCanvas[200;120]; ([] ok:enlist 1b)};',
       'draw:{[state;input;document]',
       '  t:([] txt:("a";"b"); p:(20 24f;80 48f); fill:(255 0 0i;0 255 120i));',
       '  text[t];',

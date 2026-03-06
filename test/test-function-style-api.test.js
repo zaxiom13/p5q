@@ -41,10 +41,10 @@ test('function-style setup[document] and draw[state;input;document] produce rend
       '  createCanvas[cw;ch];',
       '  background[20;20;24];',
       '  textSize[14];',
-      '  ([] tick:enlist 0i)',
+      '  ([] ready:enlist 1b)',
       '};',
       'draw:{[state;input;document]',
-      '  tick:first state[`tick];',
+      '  tick:first input[`tick];',
       '  mouse:first input[`m];',
       '  canvasW:first document[`cw];',
       '  mouseXAlias:first input[`mx];',
@@ -53,7 +53,7 @@ test('function-style setup[document] and draw[state;input;document] produce rend
       '  background[0];',
       '  circle[([] p:enlist (x;60f); d:enlist 24f)];',
       '  text[([] txt:enlist "ok dpr=" , string dpr; p:enlist 20 18f)];',
-      '  update tick:tick+1i from state',
+      '  state',
       '};'
     ].join('');
 
