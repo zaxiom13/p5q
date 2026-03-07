@@ -1059,8 +1059,14 @@ class QWorkerPool {
   }
 }
 
-function serveStatic(req, res) {
+function serveStatic(req, res, getRuntimeStatus = null) {
   const requestPath = (req.url || '/').split('?')[0];
+  if (requestPath === '/desktop-runtime-status') {
+    const status = typeof getRuntimeStatus === 'function' ? getRuntimeStatus() : null;
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify(status || null));
+    return;
+  }
   const cleanPath = requestPath === '/' ? '/index.html' : requestPath;
   const baseDir = cleanPath.startsWith('/vendor/') ? VENDOR_DIR : PUBLIC_DIR;
   const relativePath = cleanPath.startsWith('/vendor/') ? cleanPath.replace(/^\/vendor/, '') : cleanPath;
@@ -1086,8 +1092,9 @@ function serveStatic(req, res) {
 }
 
 function startServer(options = {}) {
-  const port = Number(options.port || process.env.PORT || PORT);
-  const server = http.createServer(serveStatic);
+  const port = options.port == null ? Number(process.env.PORT || PORT) : Number(options.port);
+  const runtimeStatusRef = { current: options.runtimeStatus || null };
+  const server = http.createServer((req, res) => serveStatic(req, res, () => runtimeStatusRef.current));
   const wss = new WebSocketServer({ server, path: '/ws' });
   const getSpawnSpec = () => getQSpawnSpec(options.qBinary);
   const workerPool = new QWorkerPool(Q_WORKER_POOL_SIZE, getSpawnSpec);
@@ -1181,6 +1188,9 @@ function startServer(options = {}) {
     wss,
     workerPool,
     listening,
+    setRuntimeStatus(nextStatus) {
+      runtimeStatusRef.current = nextStatus || null;
+    },
     async close() {
       await new Promise((resolve) => {
         wss.close(() => resolve());

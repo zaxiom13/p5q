@@ -28,7 +28,6 @@ const setupDrawGuideEl = document.getElementById('setupDrawGuide');
 const apiGlossaryEl = document.getElementById('apiGlossary');
 const primitiveColumnsEl = document.getElementById('primitiveColumns');
 const inputDocumentFieldsEl = document.getElementById('inputDocumentFields');
-const runtimeQuickBtn = document.getElementById('runtimeQuickBtn');
 const runtimeSummaryEl = document.getElementById('runtimeSummary');
 const runtimeBadgeEl = document.getElementById('runtimeBadge');
 const runtimePlatformEl = document.getElementById('runtimePlatform');
@@ -37,17 +36,21 @@ const runtimeSourceEl = document.getElementById('runtimeSource');
 const runtimeAutoBtn = document.getElementById('runtimeAutoBtn');
 const runtimePickBtn = document.getElementById('runtimePickBtn');
 const runtimeClearBtn = document.getElementById('runtimeClearBtn');
+const runtimeActionsEl = document.getElementById('runtimeActions');
 const openProductBtn = document.getElementById('openProductBtn');
 const openDownloadBtn = document.getElementById('openDownloadBtn');
 const openDocsBtn = document.getElementById('openDocsBtn');
 const checkUpdatesBtn = document.getElementById('checkUpdatesBtn');
 const installUpdateBtn = document.getElementById('installUpdateBtn');
+const updateActionsEl = document.getElementById('updateActions');
+const updateCardEl = document.getElementById('updateCard');
 const updateBadgeEl = document.getElementById('updateBadge');
 const updateVersionEl = document.getElementById('updateVersion');
 const updateAvailableEl = document.getElementById('updateAvailable');
 const updateMessageEl = document.getElementById('updateMessage');
 
 const desktopApi = window.p5qDesktop || null;
+const runtimeStatusApi = window.p5qRuntimeStatus || null;
 
 const STORAGE_KEY = 'p5q:workspace:v1';
 const LEGACY_SKETCH_KEY = 'p5q:lastSketch:v3';
@@ -743,59 +746,27 @@ function fillHelpContent() {
   }
 }
 
-function sourceLabel(source) {
-  if (source === 'saved') {
-    return 'Saved selection';
-  }
-  if (source === 'auto') {
-    return 'Auto-detected';
-  }
-  if (source === 'path') {
-    return 'PATH';
-  }
-  if (source === 'wsl') {
-    return 'WSL';
-  }
-  return 'Not connected';
-}
-
-function renderGuideList(id, lines) {
-  const el = document.getElementById(id);
-  if (!el) {
-    return;
-  }
-  el.innerHTML = '';
-  for (const line of lines || []) {
-    const li = document.createElement('li');
-    li.textContent = line;
-    el.appendChild(li);
-  }
-}
-
 function renderRuntimeStatus(status) {
   runtimeStatus = status;
-  const guides = status?.guides?.guides || {};
-  const currentPlatform = status?.platform || 'desktop';
-  const currentGuide = guides[currentPlatform] || {};
-  const linkedPath = status?.resolvedPath || status?.qBinary || 'Not linked yet';
+  const linkedPath = status?.resolvedPath || status?.qBinary || 'Issue: q path not set';
   const configured = Boolean(status?.configured);
+  const hasRuntimeControls = Boolean(desktopApi?.getRuntimeStatus);
+  const hasUpdateControls = Boolean(desktopApi?.getUpdateState);
 
-  runtimeSummaryEl.textContent = status?.message || 'Use the setup assistant to connect your local q runtime.';
-  runtimePlatformEl.textContent = currentGuide.title || currentPlatform;
+  runtimeSummaryEl.textContent = status?.message || 'Issue: the app has not resolved a q runtime path yet.';
+  runtimePlatformEl.textContent = status?.platform || 'desktop';
   runtimePathEl.textContent = linkedPath;
-  runtimeSourceEl.textContent = sourceLabel(status?.source);
-  runtimeBadgeEl.textContent = configured ? 'Ready to run' : 'Runtime setup needed';
+  runtimeSourceEl.textContent = runtimeStatusApi?.sourceLabel ? runtimeStatusApi.sourceLabel(status?.source) : 'Not connected';
+  runtimeBadgeEl.textContent = configured ? 'Connected' : 'Not connected';
   runtimeBadgeEl.className = `runtimeBadge ${configured ? 'runtimeBadge-ready' : 'runtimeBadge-pending'}`;
-  runtimeAutoBtn.textContent = currentGuide.autoDetectLabel || 'Auto Detect q';
-  runtimePickBtn.hidden = currentGuide.canBrowseBinary === false;
-  runtimeQuickBtn.textContent = configured ? 'Runtime Ready' : 'Runtime Setup';
-
-  renderGuideList('guide-macos', guides.macos?.steps || []);
-  renderGuideList('guide-linux', guides.linux?.steps || []);
-  renderGuideList('guide-windows', guides.windows?.steps || []);
-
-  for (const card of document.querySelectorAll('[data-guide-card]')) {
-    card.classList.toggle('active', card.getAttribute('data-guide-card') === currentPlatform);
+  if (runtimeActionsEl) {
+    runtimeActionsEl.hidden = !hasRuntimeControls;
+  }
+  if (updateCardEl) {
+    updateCardEl.hidden = !hasUpdateControls;
+  }
+  if (updateActionsEl) {
+    updateActionsEl.hidden = !hasUpdateControls;
   }
 }
 
@@ -844,21 +815,29 @@ function renderUpdateState(state) {
 
 async function refreshRuntimeStatus() {
   if (!desktopApi?.getRuntimeStatus) {
-    renderRuntimeStatus({
-      configured: false,
-      platform: 'browser',
-      source: null,
-      qBinary: null,
-      resolvedPath: null,
-      message: 'Browser mode is still available for tests, but the desktop app is where guided KDB-X setup lives.',
-      guides: {
-        guides: {
-          macos: { title: 'macOS', canBrowseBinary: true, autoDetectLabel: 'Auto Detect q', steps: ['Launch the Electron app for built-in setup actions.'] },
-          linux: { title: 'Linux', canBrowseBinary: true, autoDetectLabel: 'Auto Detect q', steps: ['Launch the Electron app for built-in setup actions.'] },
-          windows: { title: 'Windows', canBrowseBinary: false, autoDetectLabel: 'Test WSL q', steps: ['Launch the Electron app for built-in setup actions.'] }
+    try {
+      const response = await fetch('/desktop-runtime-status', { cache: 'no-store' });
+      if (response.ok) {
+        const status = await response.json();
+        if (status) {
+          renderRuntimeStatus(status);
+          return;
         }
       }
-    });
+    } catch {}
+
+    renderRuntimeStatus(
+      runtimeStatusApi?.fallbackRuntimeStatus
+        ? runtimeStatusApi.fallbackRuntimeStatus()
+        : {
+            configured: false,
+            platform: 'desktop',
+            source: null,
+            qBinary: null,
+            resolvedPath: null,
+            message: 'Runtime actions are limited in this build. If a sketch runs, q is available for this session.'
+          }
+    );
     return;
   }
 
@@ -1129,6 +1108,9 @@ function connect() {
       applyCommands(msg.setup || []);
       sketchRunning = true;
       setPreviewLiveState(true);
+      if (!desktopApi?.getRuntimeStatus && runtimeStatusApi?.inferRuntimeStatusFromSketch) {
+        renderRuntimeStatus(runtimeStatusApi.inferRuntimeStatusFromSketch(runtimeStatus));
+      }
       runGate.resolveRun();
       log('Sketch started');
     }
@@ -1579,10 +1561,6 @@ helpTabBtn.addEventListener('click', () => {
 });
 
 setupTabBtn.addEventListener('click', () => {
-  showSetupTab();
-});
-
-runtimeQuickBtn.addEventListener('click', () => {
   showSetupTab();
 });
 

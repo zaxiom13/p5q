@@ -6,7 +6,8 @@ const path = require('path');
 
 const {
   loadRuntimeConfig,
-  resolveAndPersistRuntime
+  resolveAndPersistRuntime,
+  testDirectBinary
 } = require('../electron/runtime-config');
 
 test('resolveAndPersistRuntime saves a working unix q binary for later runs', async () => {
@@ -31,6 +32,25 @@ test('resolveAndPersistRuntime saves a working unix q binary for later runs', as
     } else {
       process.env.P5Q_Q_BIN = originalEnv;
     }
+    await fs.rm(tmpRoot, { recursive: true, force: true });
+  }
+});
+
+test('testDirectBinary closes stdin so interactive q-style binaries do not hang', async () => {
+  const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'p5q-runtime-probe-'));
+  const fakeQ = path.join(tmpRoot, 'q');
+
+  try {
+    await fs.writeFile(
+      fakeQ,
+      '#!/bin/sh\nIFS= read -r line\nif [ "$line" = "\\\\" ]; then exit 0; fi\nexit 1\n',
+      { mode: 0o755 }
+    );
+
+    const status = await testDirectBinary(fakeQ);
+    assert.equal(status.ok, true);
+    assert.equal(status.resolvedPath, fakeQ);
+  } finally {
     await fs.rm(tmpRoot, { recursive: true, force: true });
   }
 });

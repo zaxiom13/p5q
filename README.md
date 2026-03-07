@@ -71,6 +71,15 @@ npm install
 npm start
 ```
 
+Desktop runtime options:
+
+- `npm start` now prefers **Electrobun** when `bunx` is installed.
+- If Bun/Electrobun is unavailable, it automatically falls back to Electron.
+- Force runtime selection with:
+  - `npm run start:electrobun`
+  - `npm run start:electron`
+  - `P5Q_DESKTOP_RUNTIME=electron npm start` (or `electrobun`)
+
 Browser-only dev server:
 
 ```bash
@@ -97,7 +106,7 @@ This repo now supports automated GitHub Releases for desktop downloads.
 1. Push a version tag such as `v0.2.0`
 2. GitHub Actions builds release assets for:
    - macOS universal (`dmg`, `zip`)
-   - Windows x64 (`nsis`, `portable`)
+   - Windows x64 + arm64 (`nsis`, `portable`)
    - Linux x64 and arm64 (`AppImage`, `tar.gz`)
 3. The workflow uploads them to the repo's Releases page
 

@@ -197,10 +197,6 @@ button.ghost {
   text-transform: uppercase;
 }
 
-.quickSetupBtn {
-  min-width: 9rem;
-}
-
 .workspace {
   display: grid;
   grid-template-columns: var(--left-pane-w) minmax(0, 1fr);
@@ -656,6 +652,10 @@ button.ghost {
   align-self: center;
 }
 
+.setupHeroActions[hidden] {
+  display: none;
+}
+
 .runtimeStatusCard {
   margin-top: 1rem;
   padding: 1rem 1.1rem;
@@ -728,44 +728,6 @@ button.ghost {
   transform: none;
 }
 
-.setupGrid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.9rem;
-  margin-top: 1rem;
-}
-
-.guideCard {
-  padding: 1rem;
-  border: 2px solid var(--ink);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.55), transparent 34%),
-    #fffdf7;
-  transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease;
-  box-shadow: 7px 7px 0 rgba(18, 17, 13, 0.05);
-}
-
-.guideCard.active {
-  transform: translate(-2px, -2px);
-  box-shadow: 8px 8px 0 rgba(18, 17, 13, 0.12);
-  background: linear-gradient(180deg, #fff2dc, #fffdf7);
-}
-
-.guideCard h3 {
-  margin: 0 0 0.7rem;
-  font-size: 1.1rem;
-}
-
-.guideCard ol {
-  margin: 0;
-  padding-left: 1.2rem;
-}
-
-.guideCard li {
-  margin-bottom: 0.55rem;
-  line-height: 1.35;
-}
-
 @media (max-width: 1080px) {
   :root {
     --header-h: 3.75rem;
@@ -831,7 +793,6 @@ button.ghost {
 
   .setupHero,
   .runtimeStatusCard,
-  .setupGrid,
   .runtimeFacts,
   .helpView {
     grid-template-columns: 1fr;

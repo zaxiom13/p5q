@@ -33,9 +33,10 @@ async function saveRuntimeConfig(userDataPath, nextConfig) {
 
 function spawnForOutput(command, args, options = {}) {
   return new Promise((resolve) => {
+    const { input, ...spawnOptions } = options;
     const proc = spawn(command, args, {
       windowsHide: true,
-      ...options
+      ...spawnOptions
     });
 
     let stdout = '';
@@ -49,6 +50,12 @@ function spawnForOutput(command, args, options = {}) {
     proc.stderr?.on('data', (chunk) => {
       stderr += chunk;
     });
+
+    if (typeof input === 'string') {
+      proc.stdin?.end(input);
+    } else if (proc.stdin) {
+      proc.stdin.end();
+    }
 
     proc.on('error', (error) => {
       resolve({ ok: false, code: -1, stdout, stderr, error: error.message });
@@ -107,7 +114,8 @@ async function testDirectBinary(binaryPath) {
   }
 
   const result = await spawnForOutput(binaryPath, ['-q'], {
-    stdio: ['pipe', 'pipe', 'pipe']
+    stdio: ['pipe', 'pipe', 'pipe'],
+    input: '\\\n'
   });
 
   if (result.ok) {
@@ -304,5 +312,6 @@ module.exports = {
   resolveAndPersistRuntime,
   saveRuntimeConfig,
   setRuntimeBinary,
+  testDirectBinary,
   DEFAULT_DOCS
 };

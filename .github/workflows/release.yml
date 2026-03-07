@@ -20,9 +20,9 @@ jobs:
           - label: macOS Universal
             os: macos-latest
             dist_command: npm run dist -- --mac dmg zip --universal
-          - label: Windows x64
+          - label: Windows x64+arm64
             os: windows-latest
-            dist_command: npm run dist -- --win nsis portable --x64
+            dist_command: npm run dist -- --win nsis portable --x64 --arm64
           - label: Linux x64+arm64
             os: ubuntu-latest
             dist_command: npm run dist -- --linux AppImage tar.gz --x64 --arm64

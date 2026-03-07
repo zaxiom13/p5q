@@ -34,7 +34,6 @@
         </div>
         <div class="statusStack">
           <div id="status" class="status">Connecting…</div>
-          <button id="runtimeQuickBtn" class="ghost quickSetupBtn" type="button">Runtime Setup</button>
         </div>
       </header>
 
@@ -57,7 +56,7 @@
           <div class="paneHeader previewTabs">
             <button id="previewTabBtn" class="tabBtn active" type="button">Preview</button>
             <button id="helpTabBtn" class="tabBtn" type="button">Help</button>
-            <button id="setupTabBtn" class="tabBtn" type="button">Setup</button>
+            <button id="setupTabBtn" class="tabBtn" type="button">Runtime</button>
             <label id="previewToggleWrap" class="previewToggle" for="fpsToggle">
               <input id="fpsToggle" type="checkbox" checked />
               <span>FPS</span>
@@ -70,7 +69,7 @@
               <h3>Press Run to bring the sketch to life.</h3>
               <p>
                 The preview mirrors canvas output, mouse input, and frame updates.
-                Open Help for table syntax or Setup if you still need a q runtime.
+                Open Help for table syntax or Runtime if you need to inspect the backend connection.
               </p>
             </div>
             <div id="canvasHost"></div>
@@ -97,11 +96,11 @@
           <div id="setupView" class="setupView" hidden>
             <section class="setupHero">
               <div>
-                <p class="eyebrow">No command line required</p>
-                <h2>Connect KDB-X once, then just press Run.</h2>
+                <p class="eyebrow">Runtime</p>
+                <h2>Show the q connection this session is actually using.</h2>
                 <p id="runtimeSummary" class="setupSummary">Checking your local q runtime…</p>
               </div>
-              <div class="setupHeroActions">
+              <div id="runtimeActions" class="setupHeroActions">
                 <button id="runtimeAutoBtn" type="button">Auto Detect q</button>
                 <button id="runtimePickBtn" class="ghost" type="button">Choose q Executable</button>
                 <button id="runtimeClearBtn" class="ghost" type="button">Reset Runtime</button>
@@ -129,7 +128,7 @@
               </div>
             </section>
 
-            <section class="runtimeStatusCard updateCard">
+            <section id="updateCard" class="runtimeStatusCard updateCard">
               <div>
                 <p class="eyebrow">App Updates</p>
                 <div id="updateBadge" class="runtimeBadge runtimeBadge-pending">Idle</div>
@@ -150,30 +149,9 @@
               </div>
             </section>
 
-            <section class="setupLinks">
-              <button id="openProductBtn" class="ghost linkButton" type="button">What is KDB-X?</button>
-              <button id="openDownloadBtn" class="ghost linkButton" type="button">Open KX Downloads</button>
-              <button id="openDocsBtn" class="ghost linkButton" type="button">Open KX Docs</button>
+            <section id="updateActions" class="setupLinks">
               <button id="checkUpdatesBtn" class="ghost linkButton" type="button">Check for Updates</button>
               <button id="installUpdateBtn" class="ghost linkButton" type="button">Install Downloaded Update</button>
-            </section>
-
-            <section class="setupGrid">
-              <article class="guideCard" data-guide-card="macos">
-                <p class="eyebrow">macOS</p>
-                <h3>Native q setup</h3>
-                <ol id="guide-macos"></ol>
-              </article>
-              <article class="guideCard" data-guide-card="linux">
-                <p class="eyebrow">Linux</p>
-                <h3>Native q setup</h3>
-                <ol id="guide-linux"></ol>
-              </article>
-              <article class="guideCard" data-guide-card="windows">
-                <p class="eyebrow">Windows</p>
-                <h3>WSL-backed q setup</h3>
-                <ol id="guide-windows"></ol>
-              </article>
             </section>
           </div>
         </section>
@@ -182,6 +160,7 @@
     <script src="/vendor/monaco-editor/min/vs/loader.js"></script>
     <script src="/qSyntax.js"></script>
     <script src="/runGate.js"></script>
+    <script src="/runtimeStatus.js"></script>
     <script src="/app.js"></script>
   </body>
 </html>
