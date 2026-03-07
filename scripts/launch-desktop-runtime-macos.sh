@@ -5,6 +5,7 @@ set -euo pipefail
 ROOT="/Users/zak1726/Desktop/Qanvas5"
 LOG_DIR="${HOME}/Library/Logs/qanvas5-studio"
 export PATH="${HOME}/.bun/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:${PATH:-}"
+NODE_BIN="$(command -v node || true)"
 
 RUNTIME="${1:-}"
 
@@ -14,6 +15,11 @@ if [[ -z "$RUNTIME" ]]; then
 fi
 
 mkdir -p "$LOG_DIR"
+
+if [[ -z "$NODE_BIN" ]]; then
+  /usr/bin/osascript -e 'display dialog "Node.js is required to launch Qanvas5 Studio from this shortcut." buttons {"OK"} default button "OK" with title "Qanvas5 Studio"'
+  exit 1
+fi
 
 case "$RUNTIME" in
   electron)
@@ -33,4 +39,7 @@ case "$RUNTIME" in
 esac
 
 cd "$ROOT"
-nohup env QANVAS5_DESKTOP_RUNTIME="$RUNTIME" /opt/homebrew/bin/npm start >>"$LOG_FILE" 2>&1 &
+nohup env \
+  QANVAS5_DESKTOP_RUNTIME="$RUNTIME" \
+  QANVAS5_SOURCE_ROOT="$ROOT" \
+  "$NODE_BIN" "$ROOT/scripts/start-desktop.js" >>"$LOG_FILE" 2>&1 </dev/null &

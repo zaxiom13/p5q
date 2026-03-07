@@ -12,11 +12,23 @@ const electrobunBin = path.join(
   '.bin',
   process.platform === 'win32' ? 'electrobun.cmd' : 'electrobun'
 );
+const electronBin = path.join(
+  __dirname,
+  '..',
+  'node_modules',
+  '.bin',
+  process.platform === 'win32' ? 'electron.cmd' : 'electron'
+);
 
 function runCommand(command, args) {
   const child = spawn(command, args, {
     stdio: 'inherit',
-    shell: process.platform === 'win32'
+    shell: process.platform === 'win32',
+    cwd: path.join(__dirname, '..'),
+    env: {
+      ...process.env,
+      QANVAS5_SOURCE_ROOT: process.env.QANVAS5_SOURCE_ROOT || path.join(__dirname, '..')
+    }
   });
 
   child.on('exit', (code, signal) => {
@@ -37,25 +49,45 @@ function hasLocalElectrobun() {
   return fs.existsSync(electrobunBin);
 }
 
+function hasLocalElectron() {
+  return fs.existsSync(electronBin);
+}
+
+function launchElectron() {
+  if (!hasLocalElectron()) {
+    console.error('[desktop] Electron is not installed in this project.');
+    process.exit(1);
+  }
+  runCommand(electronBin, [appEntry]);
+}
+
+function launchElectrobun() {
+  if (!hasLocalElectrobun()) {
+    console.error('[desktop] Electrobun is not installed in this project.');
+    process.exit(1);
+  }
+  runCommand(electrobunBin, ['dev']);
+}
+
 async function main() {
   if (explicitRuntime === 'electron') {
-    runCommand('npx', ['electron', appEntry]);
+    launchElectron();
     return;
   }
 
   if (explicitRuntime === 'electrobun') {
-    runCommand('npx', ['electrobun', 'dev']);
+    launchElectrobun();
     return;
   }
 
   if (hasLocalElectrobun()) {
     console.log('[desktop] local Electrobun detected; launching with Electrobun dev (override with QANVAS5_DESKTOP_RUNTIME=electron).');
-    runCommand('npx', ['electrobun', 'dev']);
+    launchElectrobun();
     return;
   }
 
   console.log('[desktop] Electrobun is not installed in this project; falling back to Electron.');
-  runCommand('npx', ['electron', appEntry]);
+  launchElectron();
 }
 
 main().catch((error) => {
