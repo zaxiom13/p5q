@@ -11,14 +11,14 @@ const {
 } = require('../electron/runtime-config');
 
 test('resolveAndPersistRuntime saves a working unix q binary for later runs', async () => {
-  const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'p5q-runtime-config-'));
+  const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'qanvas5-runtime-config-'));
   const userDataPath = path.join(tmpRoot, 'user-data');
   const fakeQ = path.join(tmpRoot, 'q');
-  const originalEnv = process.env.P5Q_Q_BIN;
+  const originalEnv = process.env.QANVAS5_Q_BIN;
 
   try {
     await fs.writeFile(fakeQ, '#!/bin/sh\nexit 0\n', { mode: 0o755 });
-    process.env.P5Q_Q_BIN = fakeQ;
+    process.env.QANVAS5_Q_BIN = fakeQ;
 
     const status = await resolveAndPersistRuntime(userDataPath, 'darwin');
     const saved = await loadRuntimeConfig(userDataPath);
@@ -28,16 +28,16 @@ test('resolveAndPersistRuntime saves a working unix q binary for later runs', as
     assert.equal(saved.qBinary, fakeQ);
   } finally {
     if (originalEnv === undefined) {
-      delete process.env.P5Q_Q_BIN;
+      delete process.env.QANVAS5_Q_BIN;
     } else {
-      process.env.P5Q_Q_BIN = originalEnv;
+      process.env.QANVAS5_Q_BIN = originalEnv;
     }
     await fs.rm(tmpRoot, { recursive: true, force: true });
   }
 });
 
 test('testDirectBinary closes stdin so interactive q-style binaries do not hang', async () => {
-  const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'p5q-runtime-probe-'));
+  const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'qanvas5-runtime-probe-'));
   const fakeQ = path.join(tmpRoot, 'q');
 
   try {

@@ -49,7 +49,7 @@ let currentRuntimeStatus: {
 
 function resolveAppRoot() {
   const candidates = [
-    process.env.P5Q_SOURCE_ROOT,
+    process.env.QANVAS5_SOURCE_ROOT,
     process.env.INIT_CWD,
     process.env.PWD,
     path.resolve(import.meta.dir, "../.."),
@@ -70,7 +70,7 @@ function resolveAppRoot() {
 
 function writeStartupLog(message: string) {
   try {
-    const logDir = path.join(os.homedir(), "Library", "Logs", "p5q-studio");
+    const logDir = path.join(os.homedir(), "Library", "Logs", "qanvas5-studio");
     fs.mkdirSync(logDir, { recursive: true });
     fs.appendFileSync(
       path.join(logDir, "electrobun-startup.log"),
@@ -92,7 +92,7 @@ function statusHtml(title: string, detail: string) {
   <html>
     <head>
       <meta charset="utf-8" />
-      <title>p5q Studio</title>
+      <title>Qanvas5 Studio</title>
       <style>
         :root { color-scheme: dark; }
         body {
@@ -138,14 +138,14 @@ function createMainWindow() {
   }
 
   mainWindow = new BrowserWindow({
-    title: "p5q Studio",
+    title: "Qanvas5 Studio",
     frame: {
       x: 80,
       y: 80,
       width: 1440,
       height: 900
     },
-    html: statusHtml("Starting p5q Studio...", "Booting the local preview server inside Electrobun."),
+    html: statusHtml("Starting Qanvas5 Studio...", "Booting the local preview server inside Electrobun."),
     url: null,
     preload: null,
     renderer: "native",

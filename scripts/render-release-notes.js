@@ -26,7 +26,7 @@ function renderFromChangelog(version, section) {
   }
 
   return [
-    `# p5q Studio ${version}`,
+    `# Qanvas5 Studio ${version}`,
     '',
     `Released ${section.date}`,
     '',
@@ -40,7 +40,7 @@ function renderFromChangelog(version, section) {
 
 function renderFallback(version) {
   return [
-    `# p5q Studio ${version}`,
+    `# Qanvas5 Studio ${version}`,
     '',
     '## Highlights',
     '',

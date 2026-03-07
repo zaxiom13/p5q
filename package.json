@@ -1,5 +1,5 @@
 {
-  "name": "p5q-editor",
+  "name": "qanvas5-editor",
   "version": "0.2.0",
   "private": true,
   "author": "zak1726",
@@ -7,7 +7,7 @@
   "main": "electron/main.js",
   "repository": {
     "type": "git",
-    "url": "git@github.com:zaxiom13/p5q.git"
+    "url": "git@github.com:zaxiom13/Qanvas5.git"
   },
   "scripts": {
     "start": "node scripts/start-desktop.js",
@@ -34,14 +34,14 @@
     "electron-builder": "^26.0.12"
   },
   "build": {
-    "appId": "com.p5q.studio",
-    "productName": "p5q Studio",
+    "appId": "com.qanvas5.studio",
+    "productName": "Qanvas5 Studio",
     "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
     "publish": [
       {
         "provider": "github",
         "owner": "zaxiom13",
-        "repo": "p5q"
+        "repo": "Qanvas5"
       }
     ],
     "files": [
@@ -55,7 +55,7 @@
       "buildResources": "assets"
     },
     "releaseInfo": {
-      "releaseName": "p5q Studio ${version}",
+      "releaseName": "Qanvas5 Studio ${version}",
       "releaseNotes": "Desktop release with installers, auto-update metadata, and platform packages."
     },
     "mac": {

@@ -16,5 +16,5 @@
   <circle cx="254" cy="283" r="28" fill="#e5bb62" stroke="#12110d" stroke-width="10" />
   <circle cx="350" cy="245" r="22" fill="#5d7d5f" stroke="#12110d" stroke-width="10" />
   <path d="M135 130h46m18 0h54m18 0h26" stroke="#12110d" stroke-linecap="round" stroke-width="12" />
-  <text x="110" y="395" fill="#12110d" font-family="Menlo, Consolas, monospace" font-size="78" font-weight="700">p5q</text>
+  <text x="88" y="395" fill="#12110d" font-family="Menlo, Consolas, monospace" font-size="72" font-weight="700">Qanvas5</text>
 </svg>

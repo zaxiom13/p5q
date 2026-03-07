@@ -82,7 +82,7 @@ async function fileExists(target) {
 function linuxCandidates() {
   const home = os.homedir();
   return [
-    process.env.P5Q_Q_BIN,
+    process.env.QANVAS5_Q_BIN,
     path.join(home, '.local', 'bin', 'q'),
     path.join(home, 'q', 'l64', 'q'),
     path.join(home, '.kx', 'q'),
@@ -95,7 +95,7 @@ function linuxCandidates() {
 function macCandidates() {
   const home = os.homedir();
   return [
-    process.env.P5Q_Q_BIN,
+    process.env.QANVAS5_Q_BIN,
     path.join(home, '.local', 'bin', 'q'),
     path.join(home, 'q', 'm64', 'q'),
     path.join(home, '.kx', 'q'),

@@ -23,7 +23,7 @@ if (!gotSingleInstanceLock) {
 
 function writeRawStartupLog(message) {
   try {
-    const logDir = path.join(os.homedir(), 'Library', 'Logs', 'p5q-studio');
+    const logDir = path.join(os.homedir(), 'Library', 'Logs', 'qanvas5-studio');
     fs.mkdirSync(logDir, { recursive: true });
     fs.appendFileSync(path.join(logDir, 'desktop-startup.log'), `[${new Date().toISOString()}] ${message}\n`, 'utf8');
   } catch {}
@@ -132,7 +132,7 @@ async function createMainWindow() {
     minWidth: 1220,
     minHeight: 760,
     backgroundColor: '#151512',
-    title: 'p5q Studio',
+    title: 'Qanvas5 Studio',
     autoHideMenuBar: true,
     show: false,
     icon: process.platform === 'darwin' ? undefined : appIconPath(),
@@ -158,7 +158,7 @@ async function createMainWindow() {
       <html>
         <head>
           <meta charset="utf-8" />
-          <title>p5q Studio</title>
+          <title>Qanvas5 Studio</title>
           <style>
             :root { color-scheme: dark; }
             body {
@@ -180,7 +180,7 @@ async function createMainWindow() {
           </style>
         </head>
         <body>
-          <div class="card">Starting p5q Studio...</div>
+          <div class="card">Starting Qanvas5 Studio...</div>
         </body>
       </html>
     `)}`
@@ -249,7 +249,7 @@ async function showStartupError(error) {
       <html>
         <head>
           <meta charset="utf-8" />
-          <title>p5q Studio Startup Error</title>
+          <title>Qanvas5 Studio Startup Error</title>
           <style>
             :root { color-scheme: dark; }
             body {
@@ -272,7 +272,7 @@ async function showStartupError(error) {
           </style>
         </head>
         <body>
-          <h1>p5q Studio could not finish starting</h1>
+          <h1>Qanvas5 Studio could not finish starting</h1>
           <pre>${detail.replace(/[&<>]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[ch]))}</pre>
         </body>
       </html>
@@ -422,9 +422,9 @@ app.whenReady().then(async () => {
   await createMainWindow();
 
   try {
-    const runtimeRoot = path.join(os.tmpdir(), 'p5q-studio-runtime');
-    process.env.P5Q_TMP_DIR = path.join(runtimeRoot, 'tmp');
-    process.env.P5Q_RUNTIME_CWD = runtimeRoot;
+    const runtimeRoot = path.join(os.tmpdir(), 'qanvas5-studio-runtime');
+    process.env.QANVAS5_TMP_DIR = path.join(runtimeRoot, 'tmp');
+    process.env.QANVAS5_RUNTIME_CWD = runtimeRoot;
     const savedRuntime = await loadSavedRuntimeStatus();
     logStartup(`whenReady:saved-runtime:${JSON.stringify(savedRuntime)}`);
     await startBackend(savedRuntime);

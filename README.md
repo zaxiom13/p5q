@@ -1,4 +1,4 @@
-# p5q Studio
+# Qanvas5 Studio
 
 A desktop-first p5.js-style editor where sketches are written in kdb+/q and rendered locally through p5.js commands.
 
@@ -58,7 +58,7 @@ Helper tabs:
 - Packed vector columns are the primitive contract: use `p` for `[x y]`, `v` for `[vx vy]`, `size` for `[w h]`, `p1`/`p2`/`p3` for vertices, and `fill`/`stroke` for `[r g b]` or `[r g b a]`.
 - Styling belongs in primitive tables. Use `fill`, `stroke`, and `strokeWeight` columns there instead of calling standalone style functions.
 - Component-wise primitive aliases like `x`, `y`, `w`, `h`, `x1`, `y1`, `diameter`, `fillR`, and `strokeR` are not supported.
-- Use q built-ins directly for math and utility work instead of p5q wrapper helpers.
+- Use q built-ins directly for math and utility work instead of Qanvas5 wrapper helpers.
 - Use `input[\`tick]` for frame-based animation instead of storing your own tick counter in state.
 - Runtime state must always be a q table.
 
@@ -78,7 +78,7 @@ Desktop runtime options:
 - Force runtime selection with:
   - `npm run start:electrobun`
   - `npm run start:electron`
-  - `P5Q_DESKTOP_RUNTIME=electron npm start` (or `electrobun`)
+  - `QANVAS5_DESKTOP_RUNTIME=electron npm start` (or `electrobun`)
 
 Browser-only dev server:
 
@@ -150,8 +150,8 @@ The GitHub Release workflow uses the matching changelog section for the pushed t
 
 Runtime pool sizing:
 
-- `P5Q_WORKER_POOL_SIZE=1` keeps a single shared q worker.
-- Increase `P5Q_WORKER_POOL_SIZE` to allow more concurrent sketches at the cost of more q processes.
+- `QANVAS5_WORKER_POOL_SIZE=1` keeps a single shared q worker.
+- Increase `QANVAS5_WORKER_POOL_SIZE` to allow more concurrent sketches at the cost of more q processes.
 
 ## Test
 

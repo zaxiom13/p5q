@@ -44,5 +44,5 @@
     module.exports = api;
   }
 
-  globalScope.p5qRuntimeStatus = api;
+  globalScope.qanvas5RuntimeStatus = api;
 })(typeof window !== 'undefined' ? window : globalThis);

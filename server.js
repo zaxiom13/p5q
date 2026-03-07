@@ -14,11 +14,11 @@ const EMPTY_SETUP_ERROR = 'setup not loaded';
 const EMPTY_DRAW_ERROR = 'draw not loaded';
 
 function getTmpDir() {
-  return path.resolve(process.env.P5Q_TMP_DIR || path.join(ROOT, 'tmp'));
+  return path.resolve(process.env.QANVAS5_TMP_DIR || path.join(ROOT, 'tmp'));
 }
 
 function getRuntimeCwd() {
-  return path.resolve(process.env.P5Q_RUNTIME_CWD || getTmpDir());
+  return path.resolve(process.env.QANVAS5_RUNTIME_CWD || getTmpDir());
 }
 
 function envInt(name, fallback) {
@@ -26,15 +26,15 @@ function envInt(name, fallback) {
   return Number.isFinite(raw) && raw > 0 ? Math.trunc(raw) : fallback;
 }
 
-const Q_LOAD_SETTLE_MS = envInt('P5Q_LOAD_SETTLE_MS', 90);
-const Q_INVOKE_TIMEOUT_MS = envInt('P5Q_INVOKE_TIMEOUT_MS', 1800);
-const Q_CLOSE_TIMEOUT_MS = envInt('P5Q_CLOSE_TIMEOUT_MS', 400);
-const Q_MAX_RUNS_PER_SESSION = envInt('P5Q_MAX_RUNS_PER_SESSION', 50);
-const WS_PENDING_LIMIT = envInt('P5Q_WS_PENDING_LIMIT', 64);
-const TMP_FILE_MAX_AGE_MS = envInt('P5Q_TMP_FILE_MAX_AGE_MS', 60 * 60 * 1000);
-const Q_WORKER_POOL_SIZE = envInt('P5Q_WORKER_POOL_SIZE', 1);
+const Q_LOAD_SETTLE_MS = envInt('QANVAS5_LOAD_SETTLE_MS', 90);
+const Q_INVOKE_TIMEOUT_MS = envInt('QANVAS5_INVOKE_TIMEOUT_MS', 1800);
+const Q_CLOSE_TIMEOUT_MS = envInt('QANVAS5_CLOSE_TIMEOUT_MS', 400);
+const Q_MAX_RUNS_PER_SESSION = envInt('QANVAS5_MAX_RUNS_PER_SESSION', 50);
+const WS_PENDING_LIMIT = envInt('QANVAS5_WS_PENDING_LIMIT', 64);
+const TMP_FILE_MAX_AGE_MS = envInt('QANVAS5_TMP_FILE_MAX_AGE_MS', 60 * 60 * 1000);
+const Q_WORKER_POOL_SIZE = envInt('QANVAS5_WORKER_POOL_SIZE', 1);
 
-function getQSpawnSpec(overrideBinary = process.env.P5Q_Q_BIN) {
+function getQSpawnSpec(overrideBinary = process.env.QANVAS5_Q_BIN) {
   const override = overrideBinary;
   if (override) {
     return { command: override, args: ['-q'], viaWsl: false };
@@ -1208,7 +1208,7 @@ function startServer(options = {}) {
 if (require.main === module) {
   const controller = startServer();
   controller.listening.then((port) => {
-    console.log(`p5q editor listening on http://localhost:${port}`);
+    console.log(`Qanvas5 editor listening on http://localhost:${port}`);
   });
 }
 

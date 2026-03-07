@@ -49,12 +49,12 @@ const updateVersionEl = document.getElementById('updateVersion');
 const updateAvailableEl = document.getElementById('updateAvailable');
 const updateMessageEl = document.getElementById('updateMessage');
 
-const desktopApi = window.p5qDesktop || null;
-const runtimeStatusApi = window.p5qRuntimeStatus || null;
+const desktopApi = window.qanvas5Desktop || null;
+const runtimeStatusApi = window.qanvas5RuntimeStatus || null;
 
-const STORAGE_KEY = 'p5q:workspace:v1';
-const LEGACY_SKETCH_KEY = 'p5q:lastSketch:v3';
-const FPS_TOGGLE_KEY = 'p5q:showFps:v1';
+const STORAGE_KEY = 'qanvas5:workspace:v1';
+const LEGACY_SKETCH_KEY = 'qanvas5:lastSketch:v3';
+const FPS_TOGGLE_KEY = 'qanvas5:showFps:v1';
 
 const DEFAULT_SKETCH = `// q sketch contract (function-style API):
 // - setup[document] initializes and returns state table
@@ -129,7 +129,7 @@ const API_GLOSSARY = [
   'Math: use q built-ins directly where needed'
 ];
 
-const P5Q_API_FUNCTIONS = [
+const QANVAS5_API_FUNCTIONS = [
   'createCanvas',
   'resizeCanvas',
   'frameRate',
@@ -945,13 +945,13 @@ function toggleLineComments(editor, monaco) {
   }
 
   if (edits.length > 0) {
-    editor.executeEdits('p5q-toggle-line-comment', edits);
+    editor.executeEdits('qanvas5-toggle-line-comment', edits);
   }
 }
 
 function registerQCompletions(monaco) {
   const keywords = Array.isArray(window.BOOTHROYD_Q_SYNTAX?.keywords) ? window.BOOTHROYD_Q_SYNTAX.keywords : [];
-  const allWords = Array.from(new Set([...keywords, ...P5Q_API_FUNCTIONS]));
+  const allWords = Array.from(new Set([...keywords, ...QANVAS5_API_FUNCTIONS]));
   if (allWords.length === 0) {
     return;
   }
@@ -972,7 +972,7 @@ function registerQCompletions(monaco) {
         .filter((word) => !prefix || word.toLowerCase().startsWith(prefix))
         .map((word) => ({
           label: word,
-          kind: P5Q_API_FUNCTIONS.includes(word)
+          kind: QANVAS5_API_FUNCTIONS.includes(word)
             ? monaco.languages.CompletionItemKind.Function
             : monaco.languages.CompletionItemKind.Keyword,
           insertText: word,
@@ -1035,7 +1035,7 @@ function initMonacoEditor() {
     }
     registerQCompletions(monaco);
 
-    monaco.editor.defineTheme('p5q-dark', {
+    monaco.editor.defineTheme('qanvas5-dark', {
       base: 'vs-dark',
       inherit: true,
       rules: [
@@ -1067,7 +1067,7 @@ function initMonacoEditor() {
     monacoEditor = monaco.editor.create(editorEl, {
       value: initial,
       language: 'kbd/q',
-      theme: 'p5q-dark',
+      theme: 'qanvas5-dark',
       minimap: { enabled: false },
       fontFamily: 'Menlo, Consolas, monospace',
       fontSize: 14,

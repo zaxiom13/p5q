@@ -1,6 +1,6 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
-contextBridge.exposeInMainWorld('p5qDesktop', {
+contextBridge.exposeInMainWorld('qanvas5Desktop', {
   getRuntimeStatus: () => ipcRenderer.invoke('runtime:get-status'),
   autoConfigureRuntime: () => ipcRenderer.invoke('runtime:auto-configure'),
   chooseRuntimeBinary: () => ipcRenderer.invoke('runtime:choose-binary'),

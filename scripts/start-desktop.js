@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 const appEntry = '.';
-const explicitRuntime = (process.env.P5Q_DESKTOP_RUNTIME || '').trim().toLowerCase();
+const explicitRuntime = (process.env.QANVAS5_DESKTOP_RUNTIME || '').trim().toLowerCase();
 const electrobunBin = path.join(
   __dirname,
   '..',
@@ -49,7 +49,7 @@ async function main() {
   }
 
   if (hasLocalElectrobun()) {
-    console.log('[desktop] local Electrobun detected; launching with Electrobun dev (override with P5Q_DESKTOP_RUNTIME=electron).');
+    console.log('[desktop] local Electrobun detected; launching with Electrobun dev (override with QANVAS5_DESKTOP_RUNTIME=electron).');
     runCommand('npx', ['electrobun', 'dev']);
     return;
   }

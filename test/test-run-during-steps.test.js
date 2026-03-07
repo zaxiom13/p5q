@@ -9,7 +9,7 @@ function waitForServer(child) {
 
     child.stdout.on('data', (chunk) => {
       out += chunk.toString('utf8');
-      if (out.includes('p5q editor listening on')) {
+      if (out.includes('Qanvas5 editor listening on')) {
         clearTimeout(timer);
         resolve();
       }

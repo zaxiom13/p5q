@@ -23,10 +23,10 @@ flowchart LR
 
 - It avoids restarting q on every `run`.
 - It preserves rerun semantics by resetting session-local sketch bindings and state.
-- It allows multiple browser tabs or users to share a worker when `P5Q_WORKER_POOL_SIZE` is smaller than the active session count.
+- It allows multiple browser tabs or users to share a worker when `QANVAS5_WORKER_POOL_SIZE` is smaller than the active session count.
 
 ## Current Limits
 
 - Session isolation is a correctness boundary, not a security boundary.
 - One busy sketch can still block other sessions on the same worker.
-- If you need better parallelism, increase `P5Q_WORKER_POOL_SIZE`.
+- If you need better parallelism, increase `QANVAS5_WORKER_POOL_SIZE`.

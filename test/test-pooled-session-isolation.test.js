@@ -10,7 +10,7 @@ function waitForServer(child) {
 
     child.stdout.on('data', (chunk) => {
       out += chunk.toString('utf8');
-      if (out.includes('p5q editor listening on')) {
+      if (out.includes('Qanvas5 editor listening on')) {
         clearTimeout(timer);
         resolve();
       }
@@ -62,7 +62,7 @@ test('two websocket sessions stay isolated when sharing one q worker', async () 
   const port = 7520 + Math.floor(Math.random() * 40);
   const server = spawn(process.execPath, ['server.js'], {
     cwd: process.cwd(),
-    env: { ...process.env, PORT: String(port), P5Q_WORKER_POOL_SIZE: '1' },
+    env: { ...process.env, PORT: String(port), QANVAS5_WORKER_POOL_SIZE: '1' },
     stdio: ['ignore', 'pipe', 'pipe']
   });
 

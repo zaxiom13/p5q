@@ -1,6 +1,6 @@
 const { test } = require('@playwright/test');
 
-test('record p5q bouncing dots demo', async ({ page }) => {
+test('record Qanvas5 bouncing dots demo', async ({ page }) => {
   await page.goto('/');
 
   await page.waitForSelector('#runBtn');

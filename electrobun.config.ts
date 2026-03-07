@@ -2,8 +2,8 @@ import type { ElectrobunConfig } from "electrobun";
 
 const config: ElectrobunConfig = {
   app: {
-    name: "p5q Studio",
-    identifier: "com.p5q.studio",
+    name: "Qanvas5 Studio",
+    identifier: "com.qanvas5.studio",
     version: "0.2.0",
     description: "Desktop-first p5.js-style editor for kdb+/q sketches"
   },

@@ -16,7 +16,7 @@ test('default sketch loads in q without syntax error', () => {
   const source = fs.readFileSync(appPath, 'utf8');
   const sketch = extractDefaultSketch(source);
 
-  const sketchPath = path.join(os.tmpdir(), `p5q-default-${Date.now()}.q`);
+  const sketchPath = path.join(os.tmpdir(), `qanvas5-default-${Date.now()}.q`);
   fs.writeFileSync(sketchPath, `${sketch}\n`, 'utf8');
 
   const res =

@@ -2,8 +2,8 @@
 
 set -euo pipefail
 
-ROOT="/Users/zak1726/Desktop/p5q"
-LOG_DIR="${HOME}/Library/Logs/p5q-studio"
+ROOT="/Users/zak1726/Desktop/Qanvas5"
+LOG_DIR="${HOME}/Library/Logs/qanvas5-studio"
 LOG_FILE="${LOG_DIR}/launch.log"
 export PATH="${HOME}/.bun/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:${PATH:-}"
 
