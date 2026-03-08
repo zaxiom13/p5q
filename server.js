@@ -709,13 +709,19 @@ function cleanQTrace(traceText) {
   }
 
   const normalized = kept.join('\n').trim();
-  return normalized || demangled;
+  const candidate = normalized || demangled;
+  const firstFrameMatch = candidate.match(/^\[\d+\][\s\S]*?(?=\n\s*\[\d+\]|\n\s*\(\.Q\.trp\)|$)/);
+  return (firstFrameMatch ? firstFrameMatch[0] : candidate).trim();
 }
 
 function formatPhaseRuntimeError(phase, detail) {
   const isErrorObject = detail instanceof Error;
   const message = String(isErrorObject ? detail.message : detail || 'q runtime error').trim();
   return `Runtime error in ${phase}: ${message}`;
+}
+
+function getRuntimeTrace(detail) {
+  return detail instanceof Error ? cleanQTrace(detail.qTrace || '') : '';
 }
 
 function validateHelperTabCode(tabName, code) {
@@ -1193,7 +1199,9 @@ function startServer(options = {}) {
               const setupResult = await worker.runSetup(sessionId, docTableExpr);
               const setupError = toRuntimeError(setupResult);
               if (setupError) {
-                throw new Error(formatPhaseRuntimeError('setup', setupError));
+                const err = new Error(formatPhaseRuntimeError('setup', setupError));
+                err.qTrace = getRuntimeTrace(setupError);
+                throw err;
               }
               const setupCommands = normalizeCommands(setupResult);
               activeCode = mergedCode;
@@ -1209,7 +1217,9 @@ function startServer(options = {}) {
               const stepResult = await worker.runDraw(sessionId, inputTableExpr, docTableExpr);
               const stepError = toRuntimeError(stepResult);
               if (stepError) {
-                throw new Error(formatPhaseRuntimeError('draw', stepError));
+                const err = new Error(formatPhaseRuntimeError('draw', stepError));
+                err.qTrace = getRuntimeTrace(stepError);
+                throw err;
               }
               const commands = normalizeCommands(stepResult);
               sendJson(ws, { type: 'stepResult', frame, commands });
@@ -1224,7 +1234,7 @@ function startServer(options = {}) {
               phase && !String(err?.message || '').includes(`Runtime error in ${phase}:`)
                 ? formatPhaseRuntimeError(phase, err?.message)
                 : String(err?.message || 'q runtime error');
-            sendJson(ws, { type: 'runtimeError', message });
+            sendJson(ws, { type: 'runtimeError', message, trace: String(err?.qTrace || '').trim() || null });
           }
         })
         .catch(() => {});

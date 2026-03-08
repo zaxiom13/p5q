@@ -723,7 +723,10 @@ button.ghost {
 #console {
   margin: 0;
   padding: 0.8rem;
+  display: flex;
   flex: 1;
+  flex-direction: column;
+  gap: 0.65rem;
   min-height: 0;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.45), transparent 48%),
@@ -739,6 +742,48 @@ button.ghost {
   content: 'Run a sketch to see stdout, runtime errors, and lifecycle logs here.';
   display: block;
   color: #827765;
+}
+
+.consoleEntry {
+  white-space: pre-wrap;
+}
+
+.consoleEntry-error {
+  padding: 0.75rem 0.8rem;
+  border: 2px solid rgba(159, 58, 30, 0.22);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.68), rgba(249, 223, 200, 0.82));
+  box-shadow: 4px 4px 0 rgba(18, 17, 13, 0.05);
+}
+
+.consoleErrorSummary {
+  margin-bottom: 0.55rem;
+  color: #7b2410;
+  font-weight: 700;
+  white-space: pre-wrap;
+}
+
+.consoleTrace {
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+  overflow-x: auto;
+  padding-bottom: 0.1rem;
+}
+
+.consoleTraceLine {
+  white-space: pre;
+  min-width: fit-content;
+}
+
+.consoleTraceMark {
+  background: #cb4d2a;
+  color: #fffaf2;
+  border-radius: 0.24rem;
+  box-shadow:
+    0 0 0 1px rgba(159, 58, 30, 0.2),
+    0 0 0 3px rgba(203, 77, 42, 0.14);
+  padding: 0 0.08rem;
 }
 
 .helpModal {

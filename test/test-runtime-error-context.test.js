@@ -66,7 +66,10 @@ test('generic q runtime errors include phase and source context', async () => {
         if (msg.type === 'runtimeError') {
           clearTimeout(timeout);
           ws.close();
-          resolve(String(msg.message || ''));
+          resolve({
+            message: String(msg.message || ''),
+            trace: String(msg.trace || '')
+          });
         }
       });
 
@@ -76,11 +79,13 @@ test('generic q runtime errors include phase and source context', async () => {
       });
     });
 
-    assert.match(runtimeError, /Runtime error in draw:/i);
-    assert.match(runtimeError, /length/i);
-    assert.doesNotMatch(runtimeError, /q backtrace:/i);
-    assert.doesNotMatch(runtimeError, /Active draw definition:/i);
-    assert.doesNotMatch(runtimeError, /Referenced helper/i);
+    assert.match(runtimeError.message, /Runtime error in draw:/i);
+    assert.match(runtimeError.message, /length/i);
+    assert.doesNotMatch(runtimeError.message, /q backtrace:/i);
+    assert.match(runtimeError.trace, /spawnParticles/i);
+    assert.match(runtimeError.trace, /\^/i);
+    assert.doesNotMatch(runtimeError.trace, /\[8\]/);
+    assert.doesNotMatch(runtimeError.trace, /\[5\]/);
   } finally {
     server.kill('SIGTERM');
     await new Promise((r) => server.once('exit', r));
