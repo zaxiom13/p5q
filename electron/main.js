@@ -425,6 +425,7 @@ app.whenReady().then(async () => {
     const runtimeRoot = path.join(os.tmpdir(), 'qanvas5-studio-runtime');
     process.env.QANVAS5_TMP_DIR = path.join(runtimeRoot, 'tmp');
     process.env.QANVAS5_RUNTIME_CWD = runtimeRoot;
+    process.env.QANVAS5_USER_DATA_PATH = app.getPath('userData');
     const savedRuntime = await loadSavedRuntimeStatus();
     logStartup(`whenReady:saved-runtime:${JSON.stringify(savedRuntime)}`);
     await startBackend(savedRuntime);

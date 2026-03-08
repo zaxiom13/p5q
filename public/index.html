@@ -26,9 +26,14 @@
           <div class="menuWrap">
             <button id="menuBtn" class="ghost menuBtn" aria-label="Open menu" aria-expanded="false">☰</button>
             <div id="menuPanel" class="menuPanel" hidden>
+              <p id="menuCurrentSketch" class="menuLabel">Current: Unsaved draft</p>
+              <button id="menuSaveAsBtn" class="ghost menuItem">Save Sketch As…</button>
+              <button id="menuUpdateSavedBtn" class="ghost menuItem">Update Saved Sketch</button>
               <button id="menuResetBtn" class="ghost menuItem">Reset Example</button>
-              <button id="menuSaveBtn" class="ghost menuItem">Save Local</button>
               <button id="menuWalkthroughBtn" class="ghost menuItem">Start Walkthrough</button>
+              <div class="menuDivider" aria-hidden="true"></div>
+              <div class="menuSectionTitle">Saved Sketches</div>
+              <div id="savedSketchesList" class="savedSketchesList"></div>
             </div>
           </div>
         </div>

@@ -11,7 +11,8 @@ type ServerController = {
 
 const require = createRequire(import.meta.url);
 const appRoot = resolveAppRoot();
-const { resolveDesktopRuntimeStatus } = require(path.join(appRoot, "desktop", "runtime-status.js")) as {
+const { defaultUserDataPath, resolveDesktopRuntimeStatus } = require(path.join(appRoot, "desktop", "runtime-status.js")) as {
+  defaultUserDataPath: (platform?: string) => string;
   resolveDesktopRuntimeStatus: () => Promise<{
     platform: string;
     configured: boolean;
@@ -162,6 +163,7 @@ function createMainWindow() {
 
 async function startBackend() {
   writeStartupLog("backend:start");
+  process.env.QANVAS5_USER_DATA_PATH ||= defaultUserDataPath(process.platform);
   currentRuntimeStatus = await resolveDesktopRuntimeStatus();
   const qBinary = currentRuntimeStatus?.resolvedPath || currentRuntimeStatus?.qBinary || null;
   writeStartupLog(`runtime-status:${JSON.stringify(currentRuntimeStatus)}`);

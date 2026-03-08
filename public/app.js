@@ -7,9 +7,12 @@ const newSketchBtn = document.getElementById('newSketchBtn');
 const resendBtn = document.getElementById('resendBtn');
 const menuBtn = document.getElementById('menuBtn');
 const menuPanel = document.getElementById('menuPanel');
-const menuSaveBtn = document.getElementById('menuSaveBtn');
+const menuSaveAsBtn = document.getElementById('menuSaveAsBtn');
+const menuUpdateSavedBtn = document.getElementById('menuUpdateSavedBtn');
 const menuResetBtn = document.getElementById('menuResetBtn');
+const menuCurrentSketchEl = document.getElementById('menuCurrentSketch');
 const menuWalkthroughBtn = document.getElementById('menuWalkthroughBtn');
+const savedSketchesListEl = document.getElementById('savedSketchesList');
 const tabListEl = document.getElementById('tabList');
 const addTabBtn = document.getElementById('addTabBtn');
 const exampleBtn = document.getElementById('exampleBtn');
@@ -52,7 +55,10 @@ const updateMessageEl = document.getElementById('updateMessage');
 const desktopApi = window.qanvas5Desktop || null;
 const runtimeStatusApi = window.qanvas5RuntimeStatus || null;
 
-const STORAGE_KEY = 'qanvas5:workspace:v1';
+const APP_STATE_KEY = 'qanvas5:app-state:v2';
+const APP_STATE_SAVE_DELAY_MS = 250;
+const APP_STATE_ENDPOINT = '/app-state';
+const LEGACY_WORKSPACE_STATE_KEY = 'qanvas5:workspace:v1';
 const LEGACY_SKETCH_KEY = 'qanvas5:lastSketch:v3';
 const FPS_TOGGLE_KEY = 'qanvas5:showFps:v1';
 
@@ -252,7 +258,7 @@ const WALKTHROUGH_STEPS = [
   {
     selector: '#menuBtn',
     title: 'Save + walkthrough',
-    body: 'Use the menu for Save Local, Reset Example, and restarting this walkthrough any time.'
+    body: 'Use the menu for saving named sketches, reopening them later, and restarting this walkthrough any time.'
   }
 ];
 
@@ -410,12 +416,18 @@ let awaitingFrame = false;
 let activeCommands = [];
 let setupApplied = false;
 let canvasEl = null;
-let showFpsOverlay = loadFpsPreference();
+let showFpsOverlay = true;
 let fpsDisplayValue = 0;
 let fpsSampleCount = 0;
 let fpsLastPaintAt = 0;
 let runtimeStatus = null;
 let updateState = null;
+let currentSketchId = null;
+let savedSketches = [];
+let walkthroughSeen = false;
+let appStateLoaded = false;
+let persistAppStateTimer = null;
+let sketchDialogState = null;
 const INPUT_WIRE_FIELDS = Object.freeze({
   mx: 0,
   my: 1,
@@ -460,15 +472,95 @@ const inputState = {
   ts: Date.now()
 };
 
-let workspace = loadWorkspace();
+let workspace = createDefaultWorkspace();
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
-function loadFpsPreference() {
-  const saved = localStorage.getItem(FPS_TOGGLE_KEY);
-  return saved == null ? true : saved === 'true';
+function readLocalAppState() {
+  const saved = localStorage.getItem(APP_STATE_KEY);
+  if (saved) {
+    try {
+      return JSON.parse(saved);
+    } catch {}
+  }
+
+  const legacyWorkspaceState = localStorage.getItem(LEGACY_WORKSPACE_STATE_KEY);
+  if (legacyWorkspaceState) {
+    try {
+      const parsed = JSON.parse(legacyWorkspaceState);
+      return {
+        workspace: parsed,
+        showFpsOverlay: localStorage.getItem(FPS_TOGGLE_KEY) == null ? undefined : localStorage.getItem(FPS_TOGGLE_KEY) === 'true'
+      };
+    } catch {}
+  }
+
+  const legacyWorkspace = localStorage.getItem(LEGACY_SKETCH_KEY);
+  const legacyFps = localStorage.getItem(FPS_TOGGLE_KEY);
+  if (legacyWorkspace || legacyFps != null) {
+    return {
+      workspace: legacyWorkspace
+        ? {
+            activeTabId: 'sketch',
+            tabs: [{ id: 'sketch', name: 'Sketch.q', kind: 'main', code: legacyWorkspace }]
+          }
+        : undefined,
+      showFpsOverlay: legacyFps == null ? undefined : legacyFps === 'true'
+    };
+  }
+
+  return null;
+}
+
+function writeLocalAppState(nextState) {
+  localStorage.setItem(APP_STATE_KEY, JSON.stringify(nextState));
+  localStorage.setItem(FPS_TOGGLE_KEY, nextState.showFpsOverlay ? 'true' : 'false');
+}
+
+async function loadStoredAppState() {
+  try {
+    const response = await fetch(APP_STATE_ENDPOINT, { cache: 'no-store' });
+    if (response.ok) {
+      const payload = await response.json();
+      if (payload && typeof payload === 'object') {
+        writeLocalAppState(payload);
+        return payload;
+      }
+    }
+  } catch {}
+
+  return readLocalAppState();
+}
+
+async function writeStoredAppState(nextState) {
+  writeLocalAppState(nextState);
+
+  try {
+    await fetch(APP_STATE_ENDPOINT, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(nextState)
+    });
+  } catch {}
+}
+
+function persistAppStateWithBeacon() {
+  if (!appStateLoaded || typeof navigator.sendBeacon !== 'function') {
+    return false;
+  }
+
+  try {
+    const payload = JSON.stringify(collectAppState());
+    const sent = navigator.sendBeacon(APP_STATE_ENDPOINT, new Blob([payload], { type: 'application/json' }));
+    if (sent) {
+      writeLocalAppState(collectAppState());
+    }
+    return sent;
+  } catch {
+    return false;
+  }
 }
 
 function syncFpsOverlay() {
@@ -483,8 +575,8 @@ function setFpsOverlayEnabled(nextValue) {
   if (fpsToggleEl) {
     fpsToggleEl.checked = showFpsOverlay;
   }
-  localStorage.setItem(FPS_TOGGLE_KEY, showFpsOverlay ? 'true' : 'false');
   syncFpsOverlay();
+  schedulePersistAppState();
 }
 
 function paintFps(reading) {
@@ -510,6 +602,16 @@ function updateFpsOverlay(sketch) {
 
 function createDefaultWorkspace() {
   return clone(EXAMPLES[0].workspace);
+}
+
+function createDefaultAppState() {
+  return {
+    workspace: createDefaultWorkspace(),
+    savedSketches: [],
+    currentSketchId: null,
+    showFpsOverlay: true,
+    walkthroughSeen: false
+  };
 }
 
 function sanitizeWorkspace(raw) {
@@ -543,25 +645,88 @@ function sanitizeWorkspace(raw) {
   return { tabs: normalized, activeTabId };
 }
 
-function loadWorkspace() {
-  const saved = localStorage.getItem(STORAGE_KEY);
-  if (saved) {
-    try {
-      return sanitizeWorkspace(JSON.parse(saved));
-    } catch {
-      return createDefaultWorkspace();
-    }
-  }
+function sanitizeSavedSketches(raw) {
+  const seenIds = new Set();
+  return (Array.isArray(raw) ? raw : [])
+    .filter((item) => item && typeof item === 'object')
+    .map((item, idx) => {
+      const id = String(item.id || `saved-${idx + 1}`);
+      if (seenIds.has(id)) {
+        return null;
+      }
+      seenIds.add(id);
+      return {
+        id,
+        name: String(item.name || `Sketch ${idx + 1}`),
+        workspace: sanitizeWorkspace(item.workspace),
+        createdAt: Number(item.createdAt) || Date.now(),
+        updatedAt: Number(item.updatedAt) || Date.now()
+      };
+    })
+    .filter(Boolean);
+}
 
-  const legacySketch = localStorage.getItem(LEGACY_SKETCH_KEY);
-  if (legacySketch) {
-    return sanitizeWorkspace({
-      activeTabId: 'sketch',
-      tabs: [{ id: 'sketch', name: 'Sketch.q', kind: 'main', code: legacySketch }]
-    });
-  }
+function sanitizeAppState(raw) {
+  const fallback = readLocalAppState();
+  const source = raw && typeof raw === 'object' ? raw : fallback && typeof fallback === 'object' ? fallback : {};
+  const defaults = createDefaultAppState();
+  const sketches = sanitizeSavedSketches(source.savedSketches);
+  const currentId = typeof source.currentSketchId === 'string' ? source.currentSketchId : null;
 
-  return createDefaultWorkspace();
+  return {
+    workspace: sanitizeWorkspace(source.workspace || defaults.workspace),
+    savedSketches: sketches,
+    currentSketchId: sketches.some((sketch) => sketch.id === currentId) ? currentId : null,
+    showFpsOverlay: typeof source.showFpsOverlay === 'boolean' ? source.showFpsOverlay : defaults.showFpsOverlay,
+    walkthroughSeen: Boolean(source.walkthroughSeen)
+  };
+}
+
+function applyAppState(raw) {
+  const nextState = sanitizeAppState(raw);
+  workspace = nextState.workspace;
+  savedSketches = nextState.savedSketches;
+  currentSketchId = nextState.currentSketchId;
+  showFpsOverlay = nextState.showFpsOverlay;
+  walkthroughSeen = nextState.walkthroughSeen;
+}
+
+function collectAppState() {
+  persistActiveTabCode();
+  return {
+    workspace: sanitizeWorkspace(clone(workspace)),
+    savedSketches: savedSketches.map((sketch) => ({
+      id: sketch.id,
+      name: sketch.name,
+      workspace: sanitizeWorkspace(clone(sketch.workspace)),
+      createdAt: sketch.createdAt,
+      updatedAt: sketch.updatedAt
+    })),
+    currentSketchId,
+    showFpsOverlay,
+    walkthroughSeen
+  };
+}
+
+function schedulePersistAppState() {
+  if (!appStateLoaded) {
+    return;
+  }
+  if (persistAppStateTimer) {
+    clearTimeout(persistAppStateTimer);
+  }
+  persistAppStateTimer = setTimeout(() => {
+    persistAppStateTimer = null;
+    void persistAppState();
+  }, APP_STATE_SAVE_DELAY_MS);
+}
+
+async function persistAppState() {
+  if (!appStateLoaded) {
+    return;
+  }
+  const snapshot = collectAppState();
+  await writeStoredAppState(snapshot);
 }
 
 function persistActiveTabCode() {
@@ -574,7 +739,7 @@ function persistActiveTabCode() {
 
 function saveWorkspace() {
   persistActiveTabCode();
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(workspace));
+  schedulePersistAppState();
 }
 
 function activeTab() {
@@ -587,6 +752,82 @@ function mainTab() {
 
 function helperTabs() {
   return workspace.tabs.filter((t) => t.kind === 'helper');
+}
+
+function currentSavedSketch() {
+  return savedSketches.find((sketch) => sketch.id === currentSketchId) || null;
+}
+
+function sketchTimestampLabel(value) {
+  const stamp = Number(value);
+  if (!stamp) {
+    return 'Saved just now';
+  }
+  return `Updated ${new Date(stamp).toLocaleString()}`;
+}
+
+function renderSavedSketches() {
+  if (!savedSketchesListEl) {
+    return;
+  }
+
+  savedSketchesListEl.innerHTML = '';
+  if (savedSketches.length === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'savedSketchesEmpty';
+    empty.textContent = 'No saved sketches yet.';
+    savedSketchesListEl.appendChild(empty);
+  } else {
+    const ordered = [...savedSketches].sort((a, b) => b.updatedAt - a.updatedAt);
+    for (const sketch of ordered) {
+      const item = document.createElement('div');
+      item.className = `savedSketchItem ${sketch.id === currentSketchId ? 'active' : ''}`;
+
+      const meta = document.createElement('button');
+      meta.className = 'savedSketchMeta';
+      meta.type = 'button';
+      meta.title = `Open ${sketch.name}`;
+      const title = document.createElement('strong');
+      title.textContent = sketch.name;
+      const stamp = document.createElement('span');
+      stamp.textContent = sketchTimestampLabel(sketch.updatedAt);
+      meta.append(title, stamp);
+      meta.addEventListener('click', () => {
+        openSavedSketch(sketch.id);
+      });
+      item.appendChild(meta);
+
+      const renameBtn = document.createElement('button');
+      renameBtn.className = 'ghost savedSketchAction';
+      renameBtn.type = 'button';
+      renameBtn.textContent = 'Rename';
+      renameBtn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        renameSavedSketch(sketch.id);
+      });
+      item.appendChild(renameBtn);
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'ghost savedSketchAction';
+      deleteBtn.type = 'button';
+      deleteBtn.textContent = 'Delete';
+      deleteBtn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        deleteSavedSketch(sketch.id);
+      });
+      item.appendChild(deleteBtn);
+
+      savedSketchesListEl.appendChild(item);
+    }
+  }
+
+  if (menuCurrentSketchEl) {
+    const current = currentSavedSketch();
+    menuCurrentSketchEl.textContent = current ? `Current: ${current.name}` : 'Current: Unsaved draft';
+  }
+  if (menuUpdateSavedBtn) {
+    menuUpdateSavedBtn.disabled = !currentSavedSketch();
+  }
 }
 
 function renderTabs() {
@@ -611,6 +852,8 @@ function renderTabs() {
 
     tabListEl.appendChild(chip);
   }
+
+  renderSavedSketches();
 }
 
 function switchTab(tabId) {
@@ -659,6 +902,281 @@ function addHelperTab() {
   saveWorkspace();
 }
 
+function nextSketchName(baseName, excludeId = null) {
+  const base = String(baseName || 'Untitled Sketch').trim() || 'Untitled Sketch';
+  if (!savedSketches.some((sketch) => sketch.id !== excludeId && sketch.name === base)) {
+    return base;
+  }
+
+  let idx = 2;
+  while (savedSketches.some((sketch) => sketch.id !== excludeId && sketch.name === `${base} (${idx})`)) {
+    idx += 1;
+  }
+  return `${base} (${idx})`;
+}
+
+function ensureSketchDialogElements() {
+  let overlay = document.getElementById('sketchDialogOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'sketchDialogOverlay';
+    overlay.className = 'sketchDialogOverlay';
+    overlay.hidden = true;
+    overlay.innerHTML = `
+      <section id="sketchDialogCard" class="sketchDialogCard" role="dialog" aria-modal="true" aria-labelledby="sketchDialogTitle">
+        <p id="sketchDialogEyebrow" class="eyebrow">Sketch</p>
+        <h3 id="sketchDialogTitle" class="sketchDialogTitle"></h3>
+        <p id="sketchDialogBody" class="sketchDialogBody"></p>
+        <label id="sketchDialogFieldWrap" class="sketchDialogFieldWrap" hidden>
+          <span class="sketchDialogLabel">Name</span>
+          <input id="sketchDialogInput" class="sketchDialogInput" type="text" maxlength="120" />
+        </label>
+        <div class="sketchDialogActions">
+          <button id="sketchDialogCancelBtn" class="ghost" type="button">Cancel</button>
+          <button id="sketchDialogConfirmBtn" type="button">Save</button>
+        </div>
+      </section>
+    `;
+    document.body.appendChild(overlay);
+  }
+
+  if (!overlay.dataset.bound) {
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay) {
+        closeSketchDialog(null);
+      }
+    });
+    overlay.dataset.bound = '1';
+  }
+
+  const input = document.getElementById('sketchDialogInput');
+  const cancelBtn = document.getElementById('sketchDialogCancelBtn');
+  const confirmBtn = document.getElementById('sketchDialogConfirmBtn');
+
+  if (cancelBtn && !cancelBtn.dataset.bound) {
+    cancelBtn.addEventListener('click', () => {
+      closeSketchDialog(null);
+    });
+    cancelBtn.dataset.bound = '1';
+  }
+
+  if (confirmBtn && !confirmBtn.dataset.bound) {
+    confirmBtn.addEventListener('click', () => {
+      if (!sketchDialogState) {
+        return;
+      }
+      if (sketchDialogState.mode === 'text') {
+        const clean = String(input?.value || '').trim();
+        closeSketchDialog(clean || null);
+        return;
+      }
+      closeSketchDialog(true);
+    });
+    confirmBtn.dataset.bound = '1';
+  }
+
+  if (input && !input.dataset.bound) {
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        const clean = String(input.value || '').trim();
+        closeSketchDialog(clean || null);
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeSketchDialog(null);
+      }
+    });
+    input.dataset.bound = '1';
+  }
+
+  return {
+    overlay,
+    title: document.getElementById('sketchDialogTitle'),
+    body: document.getElementById('sketchDialogBody'),
+    fieldWrap: document.getElementById('sketchDialogFieldWrap'),
+    input,
+    confirmBtn
+  };
+}
+
+function closeSketchDialog(result) {
+  if (!sketchDialogState) {
+    return;
+  }
+  const { overlay, resolve } = sketchDialogState;
+  sketchDialogState = null;
+  if (overlay) {
+    overlay.hidden = true;
+  }
+  resolve(result);
+}
+
+function openSketchNameDialog({ title, body, defaultValue, confirmLabel }) {
+  const { overlay, title: titleEl, body: bodyEl, fieldWrap, input, confirmBtn } = ensureSketchDialogElements();
+  if (!overlay || !titleEl || !bodyEl || !fieldWrap || !input || !confirmBtn) {
+    return Promise.resolve(null);
+  }
+
+  titleEl.textContent = title;
+  bodyEl.textContent = body;
+  fieldWrap.hidden = false;
+  input.value = defaultValue || '';
+  confirmBtn.textContent = confirmLabel || 'Save';
+  overlay.hidden = false;
+  sketchDialogState = {
+    mode: 'text',
+    overlay,
+    resolve: (value) => value
+  };
+
+  return new Promise((resolve) => {
+    sketchDialogState.resolve = resolve;
+    requestAnimationFrame(() => {
+      input.focus();
+      input.select();
+    });
+  });
+}
+
+function openSketchConfirmDialog({ title, body, confirmLabel }) {
+  const { overlay, title: titleEl, body: bodyEl, fieldWrap, input, confirmBtn } = ensureSketchDialogElements();
+  if (!overlay || !titleEl || !bodyEl || !fieldWrap || !confirmBtn) {
+    return Promise.resolve(false);
+  }
+
+  titleEl.textContent = title;
+  bodyEl.textContent = body;
+  fieldWrap.hidden = true;
+  if (input) {
+    input.value = '';
+  }
+  confirmBtn.textContent = confirmLabel || 'Confirm';
+  overlay.hidden = false;
+  sketchDialogState = {
+    mode: 'confirm',
+    overlay,
+    resolve: (value) => value
+  };
+
+  return new Promise((resolve) => {
+    sketchDialogState.resolve = resolve;
+    requestAnimationFrame(() => {
+      confirmBtn.focus();
+    });
+  });
+}
+
+async function saveCurrentSketchAs() {
+  persistActiveTabCode();
+  const suggested = nextSketchName(currentSavedSketch()?.name || 'Untitled Sketch');
+  const name = await openSketchNameDialog({
+    title: 'Save Sketch As',
+    body: 'Give this sketch a name so you can reopen and update it later.',
+    defaultValue: suggested,
+    confirmLabel: 'Save'
+  });
+  if (!name) {
+    return;
+  }
+
+  const stamp = Date.now();
+  const sketch = {
+    id: `saved-${stamp}`,
+    name: nextSketchName(name),
+    workspace: sanitizeWorkspace(clone(workspace)),
+    createdAt: stamp,
+    updatedAt: stamp
+  };
+  savedSketches = [...savedSketches, sketch];
+  currentSketchId = sketch.id;
+  renderSavedSketches();
+  saveWorkspace();
+  closeMenu();
+  log(`Saved sketch: ${sketch.name}`);
+}
+
+function updateCurrentSavedSketch() {
+  persistActiveTabCode();
+  const current = currentSavedSketch();
+  if (!current) {
+    saveCurrentSketchAs();
+    return;
+  }
+
+  current.workspace = sanitizeWorkspace(clone(workspace));
+  current.updatedAt = Date.now();
+  renderSavedSketches();
+  saveWorkspace();
+  closeMenu();
+  log(`Updated sketch: ${current.name}`);
+}
+
+function openSavedSketch(sketchId) {
+  const sketch = savedSketches.find((item) => item.id === sketchId);
+  if (!sketch) {
+    return;
+  }
+
+  persistActiveTabCode();
+  workspace = sanitizeWorkspace(clone(sketch.workspace));
+  currentSketchId = sketch.id;
+  sketch.updatedAt = Math.max(Number(sketch.updatedAt) || 0, Date.now());
+  setEditorCode(activeTab().code);
+  renderTabs();
+  saveWorkspace();
+  closeMenu();
+  log(`Opened sketch: ${sketch.name}`);
+}
+
+async function renameSavedSketch(sketchId = currentSketchId) {
+  const sketch = savedSketches.find((item) => item.id === sketchId);
+  if (!sketch) {
+    return;
+  }
+
+  const nextName = await openSketchNameDialog({
+    title: 'Rename Sketch',
+    body: 'Choose a new name for this saved sketch.',
+    defaultValue: sketch.name,
+    confirmLabel: 'Rename'
+  });
+  if (!nextName) {
+    return;
+  }
+
+  sketch.name = nextSketchName(nextName, sketch.id);
+  sketch.updatedAt = Date.now();
+  renderSavedSketches();
+  saveWorkspace();
+  closeMenu();
+  log(`Renamed sketch to ${sketch.name}`);
+}
+
+async function deleteSavedSketch(sketchId = currentSketchId) {
+  const sketch = savedSketches.find((item) => item.id === sketchId);
+  if (!sketch) {
+    return;
+  }
+  const confirmed = await openSketchConfirmDialog({
+    title: 'Delete Saved Sketch',
+    body: `Delete "${sketch.name}" from your saved sketches? This will not change the currently open draft unless it is reopened later.`,
+    confirmLabel: 'Delete'
+  });
+  if (!confirmed) {
+    return;
+  }
+
+  savedSketches = savedSketches.filter((item) => item.id !== sketch.id);
+  if (currentSketchId === sketch.id) {
+    currentSketchId = null;
+  }
+  renderSavedSketches();
+  saveWorkspace();
+  closeMenu();
+  log(`Deleted sketch: ${sketch.name}`);
+}
+
 function buildRunPayload() {
   persistActiveTabCode();
   const main = mainTab();
@@ -671,7 +1189,9 @@ function loadExample(exampleId) {
   if (!found) {
     return;
   }
+  persistActiveTabCode();
   workspace = sanitizeWorkspace(clone(found.workspace));
+  currentSketchId = null;
   setEditorCode(activeTab().code);
   renderTabs();
   saveWorkspace();
@@ -693,6 +1213,7 @@ function loadNewSketch() {
   setupApplied = false;
   activeCommands = [];
   workspace = createEmptyWorkspace();
+  currentSketchId = null;
   setEditorCode(activeTab().code);
   renderTabs();
   saveWorkspace();
@@ -1081,6 +1602,7 @@ function initMonacoEditor() {
       if (tab) {
         tab.code = monacoEditor.getValue();
       }
+      schedulePersistAppState();
     });
 
     monacoEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Slash, () => {
@@ -1324,6 +1846,8 @@ function stopWalkthrough(message) {
   walkthroughState.active = false;
   walkthroughState.index = 0;
   clearWalkthroughHighlights();
+  walkthroughSeen = true;
+  schedulePersistAppState();
   const overlay = document.getElementById('walkthroughOverlay');
   const card = document.getElementById('walkthroughCard');
   if (overlay) {
@@ -1418,6 +1942,8 @@ function startWalkthrough() {
     skipBtn.dataset.bound = '1';
   }
 
+  walkthroughSeen = true;
+  schedulePersistAppState();
   walkthroughState.active = true;
   walkthroughState.index = 0;
   renderWalkthroughStep();
@@ -1454,10 +1980,12 @@ resendBtn.addEventListener('click', () => {
   clearConsole();
 });
 
-menuSaveBtn.addEventListener('click', () => {
-  saveWorkspace();
-  closeMenu();
-  log('Saved to local storage');
+menuSaveAsBtn?.addEventListener('click', () => {
+  saveCurrentSketchAs();
+});
+
+menuUpdateSavedBtn?.addEventListener('click', () => {
+  updateCurrentSavedSketch();
 });
 
 menuResetBtn.addEventListener('click', () => {
@@ -1570,6 +2098,10 @@ document.addEventListener('click', () => {
 });
 
 document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && sketchDialogState) {
+    closeSketchDialog(null);
+    return;
+  }
   if (event.key === 'Escape') {
     closeMenu();
     closeExamplesMenu();
@@ -1776,6 +2308,9 @@ const p = new p5((sketch) => {
 window.addEventListener('beforeunload', () => {
   stopWalkthrough();
   saveWorkspace();
+  if (!persistAppStateWithBeacon()) {
+    void persistAppState();
+  }
 });
 
 window.addEventListener('resize', () => {
@@ -1789,17 +2324,34 @@ window.addEventListener('resize', () => {
   }
 });
 
-fillExamplesDropdown();
-fillHelpContent();
-renderTabs();
-initMonacoEditor();
-setFpsOverlayEnabled(showFpsOverlay);
-connect();
-refreshRuntimeStatus();
-refreshUpdateState();
-desktopApi?.onUpdateState?.((state) => {
-  renderUpdateState(state);
+async function bootstrapApp() {
+  applyAppState(await loadStoredAppState());
+  appStateLoaded = true;
+  initializeAppUi();
+}
+
+bootstrapApp().catch((error) => {
+  applyAppState(readLocalAppState());
+  appStateLoaded = true;
+  initializeAppUi();
+  log(`Fell back to local draft state: ${String(error?.message || error || 'Unknown bootstrap error')}`);
 });
-log('Ready. Press Run.');
-setPreviewLiveState(false);
-startWalkthrough();
+
+function initializeAppUi() {
+  fillExamplesDropdown();
+  fillHelpContent();
+  renderTabs();
+  initMonacoEditor();
+  setFpsOverlayEnabled(showFpsOverlay);
+  connect();
+  refreshRuntimeStatus();
+  refreshUpdateState();
+  desktopApi?.onUpdateState?.((state) => {
+    renderUpdateState(state);
+  });
+  log('Ready. Press Run.');
+  setPreviewLiveState(false);
+  if (!walkthroughSeen) {
+    startWalkthrough();
+  }
+}

@@ -1,6 +1,7 @@
 const fs = require('fs');
 const fsp = require('fs/promises');
 const http = require('http');
+const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
 const { spawn } = require('child_process');
@@ -12,6 +13,7 @@ const VENDOR_DIR = path.join(ROOT, 'node_modules');
 const PORT = Number(process.env.PORT || 5173);
 const EMPTY_SETUP_ERROR = 'setup not loaded';
 const EMPTY_DRAW_ERROR = 'draw not loaded';
+const APP_STATE_FILE = 'app-state.json';
 
 function getTmpDir() {
   return path.resolve(process.env.QANVAS5_TMP_DIR || path.join(ROOT, 'tmp'));
@@ -19,6 +21,24 @@ function getTmpDir() {
 
 function getRuntimeCwd() {
   return path.resolve(process.env.QANVAS5_RUNTIME_CWD || getTmpDir());
+}
+
+function defaultUserDataPath(platform = process.platform) {
+  if (platform === 'darwin') {
+    return path.join(os.homedir(), 'Library', 'Application Support', 'qanvas5-editor');
+  }
+  if (platform === 'win32') {
+    return path.join(process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'), 'qanvas5-editor');
+  }
+  return path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'qanvas5-editor');
+}
+
+function getUserDataPath(platform = process.platform) {
+  return path.resolve(process.env.QANVAS5_USER_DATA_PATH || defaultUserDataPath(platform));
+}
+
+function getAppStatePath(platform = process.platform) {
+  return path.join(getUserDataPath(platform), APP_STATE_FILE);
 }
 
 function envInt(name, fallback) {
@@ -97,6 +117,66 @@ async function pruneTmpDir() {
         }
       })
   );
+}
+
+async function loadPersistedAppState(platform = process.platform) {
+  try {
+    const raw = await fsp.readFile(getAppStatePath(platform), 'utf8');
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+async function savePersistedAppState(nextState, platform = process.platform) {
+  const normalized = nextState && typeof nextState === 'object' ? nextState : {};
+  const userDataPath = getUserDataPath(platform);
+  await fsp.mkdir(userDataPath, { recursive: true });
+  await fsp.writeFile(getAppStatePath(platform), JSON.stringify(normalized, null, 2), 'utf8');
+  return normalized;
+}
+
+function readRequestBody(req) {
+  return new Promise((resolve, reject) => {
+    let body = '';
+    req.setEncoding('utf8');
+    req.on('data', (chunk) => {
+      body += chunk;
+      if (body.length > 1024 * 1024) {
+        reject(new Error('Request body too large'));
+        req.destroy();
+      }
+    });
+    req.on('end', () => resolve(body));
+    req.on('error', reject);
+  });
+}
+
+async function handleAppStateRequest(req, res) {
+  if (req.method === 'GET') {
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify((await loadPersistedAppState()) || null));
+    return;
+  }
+
+  if (req.method === 'PUT' || req.method === 'POST') {
+    try {
+      const raw = await readRequestBody(req);
+      const parsed = raw ? JSON.parse(raw) : {};
+      const saved = await savePersistedAppState(parsed);
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify(saved));
+      return;
+    } catch (error) {
+      res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify({ error: String(error?.message || error || 'Invalid app state payload') }));
+      return;
+    }
+  }
+
+  res.writeHead(405, { 'Content-Type': 'application/json; charset=utf-8', Allow: 'GET, PUT, POST' });
+  res.end(JSON.stringify({ error: 'Method not allowed' }));
 }
 
 const RUNTIME_BOOT = [
@@ -1059,12 +1139,16 @@ class QWorkerPool {
   }
 }
 
-function serveStatic(req, res, getRuntimeStatus = null) {
+async function serveStatic(req, res, getRuntimeStatus = null) {
   const requestPath = (req.url || '/').split('?')[0];
   if (requestPath === '/desktop-runtime-status') {
     const status = typeof getRuntimeStatus === 'function' ? getRuntimeStatus() : null;
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
     res.end(JSON.stringify(status || null));
+    return;
+  }
+  if (requestPath === '/app-state') {
+    await handleAppStateRequest(req, res);
     return;
   }
   const cleanPath = requestPath === '/' ? '/index.html' : requestPath;
@@ -1078,23 +1162,26 @@ function serveStatic(req, res, getRuntimeStatus = null) {
     return;
   }
 
-  fs.readFile(filePath, (err, content) => {
-    if (err) {
-      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-      res.end('Not Found');
-      return;
-    }
-
+  try {
+    const content = await fsp.readFile(filePath);
     const ext = path.extname(filePath);
     res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
     res.end(content);
-  });
+  } catch {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('Not Found');
+  }
 }
 
 function startServer(options = {}) {
   const port = options.port == null ? Number(process.env.PORT || PORT) : Number(options.port);
   const runtimeStatusRef = { current: options.runtimeStatus || null };
-  const server = http.createServer((req, res) => serveStatic(req, res, () => runtimeStatusRef.current));
+  const server = http.createServer((req, res) => {
+    serveStatic(req, res, () => runtimeStatusRef.current).catch((error) => {
+      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify({ error: String(error?.message || error || 'Internal server error') }));
+    });
+  });
   const wss = new WebSocketServer({ server, path: '/ws' });
   const getSpawnSpec = () => getQSpawnSpec(options.qBinary);
   const workerPool = new QWorkerPool(Q_WORKER_POOL_SIZE, getSpawnSpec);
@@ -1213,5 +1300,9 @@ if (require.main === module) {
 }
 
 module.exports = {
+  defaultUserDataPath,
+  getAppStatePath,
+  loadPersistedAppState,
+  savePersistedAppState,
   startServer
 };
